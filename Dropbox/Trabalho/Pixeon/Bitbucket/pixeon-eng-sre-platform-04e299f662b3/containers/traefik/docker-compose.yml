@@ -1,0 +1,20 @@
+version: '2'
+services:
+  traefik-proxy:
+    image: traefik
+    #volumes:
+    #- /dev/null:/traefik.toml
+    ports:
+    - 80:80/tcp
+    - 8000:8080/tcp
+    command:
+    - --web
+    - --rancher
+    - --rancher.accesskey=47A937C9EB50226AA3C9
+    - --rancher.secretkey=MM82fKvKTwa9wqyd6nS1vFsE7qgAdxCNw2r35KeB
+    - --rancher.exposedbydefault=false
+    - --rancher.endpoint=https://caas.pixeon.cloud
+    - --logLevel=DEBUG
+    labels:
+      io.rancher.scheduler.affinity:host_label: traefik_lb=true
+      io.rancher.container.hostname_override: container_name

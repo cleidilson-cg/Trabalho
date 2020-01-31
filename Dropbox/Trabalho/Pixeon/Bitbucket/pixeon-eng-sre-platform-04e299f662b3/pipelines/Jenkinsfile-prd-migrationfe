@@ -1,0 +1,50 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Rancher - Deploy') {
+            environment {
+                token = credentials('TOKEN-RANCHER2-PRD')
+            }
+            steps {
+                echo 'Deploy - Kubernetes by API Rancher'
+                deploy()
+            }
+        }
+    }
+}
+
+def deploy() {
+
+    def newTimeStamp = new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+
+    def finalImageName = "registry.pixeon.cloud/${NEXUS_IMAGE_NAME}:${NEXUS_IMAGE_TAG}"
+
+    def containerName = "${RANCHER_CONTAINER_NAME}"
+
+    def response = sh(script: "curl -s -u \"${token}\" \
+                            -X GET \
+                            -H \"Connection: keep-alive\" \
+                            -H \"Pragma: no-cache\" \
+                            -H \"Cache-Control: no-cache\" \
+                            -H \"content-type: application/json\" \
+                            -H \"Accept: application/json\" \
+                            https://caasaz.pixeon.cloud/v3/project/c-vcp58:p-t6n28/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" , returnStdout: true)
+
+    def jsonData = readJSON text: response
+    jsonData.actions = null
+    jsonData.annotations["cattle.io/timestamp"] = newTimeStamp
+    jsonData.containers[0].image = finalImageName.toString()
+    jsonData.containers[0].name = containerName.toString()
+
+    def body = jsonData.toString()
+
+    sh "curl -s -u \"${token}\" \
+                -X PUT \
+                -H \"Connection: keep-alive\" \
+                -H \"Pragma: no-cache\" \
+                -H \"Cache-Control: no-cache\" \
+                -H \"Content-type: application/json\" \
+                -H \"Accept: application/json\" \
+                --data-binary '${body}' --compressed \
+                https://caasaz.pixeon.cloud/v3/project/c-vcp58:p-t6n28/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}"
+}

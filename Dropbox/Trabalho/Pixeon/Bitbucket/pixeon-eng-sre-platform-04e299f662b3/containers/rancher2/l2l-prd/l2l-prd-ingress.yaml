@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: l2l-prd-ingress
+  namespace: l2l-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - l2l-api-prd.pixeon.cloud
+    - l2l-reports-prd.pixeon.cloud
+    - l2l-etiqueta-prd.pixeon.cloud
+    - l2l-rabbitmq-prd.pixeon.cloud
+    secretName: l2l-prd-secret
+  rules:
+  - host: l2l-api-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-prd-api
+          servicePort: 80
+  - host: l2l-reports-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-prd-reports
+          servicePort: 80
+  - host: l2l-etiqueta-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-prd-solicitacaoetiqueta
+          servicePort: 80
+  - host: l2l-rabbitmq-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-prd-rabbitmq-web
+          servicePort: 15672

@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l2l-qas-mongo
+  namespace: l2l-qas
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-qas-mongo
+  namespace: l2l-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-qas-mongo
+  template:
+    metadata:
+      labels:
+        app: l2l-qas-mongo
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-qas-mongo
+        image: mongo:3.4.21-xenial
+        ports:
+        - containerPort: 27017
+          name: l2l-qas-mongo
+        volumeMounts:
+        - mountPath: "/data/db"
+          name: l2l-qas-mongo
+      volumes:
+        - name: l2l-qas-mongo
+          persistentVolumeClaim:
+            claimName: l2l-qas-mongo
+      hostname: l2l-qas-mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-qas-mongo
+  namespace: l2l-qas
+spec:
+  ports:
+  - port: 27017
+  selector:
+    app: l2l-qas-mongo

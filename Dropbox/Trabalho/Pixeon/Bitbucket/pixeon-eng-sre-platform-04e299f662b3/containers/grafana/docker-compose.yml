@@ -1,0 +1,23 @@
+version: '2'
+services:
+  grafana:
+    image: grafana/grafana:master
+    environment:
+      GF_SERVER_HTTP_PORT: '8081'
+      GF_INSTALL_PLUGINS: grafana-azure-monitor-datasource
+    volumes:
+      - grafana:/var/lib/grafana
+    stdin_open: true
+    tty: true
+    labels:
+      traefik.frontend.rule: Host:grafana.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: grafana
+      traefik.port: '8081'
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+volumes: 
+  grafana:

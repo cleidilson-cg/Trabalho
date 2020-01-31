@@ -1,0 +1,152 @@
+    pipeline {
+        agent { label 'master' }
+
+
+        parameters {
+            string(name: 'GIT_BRANCH',
+            description: 'Branch to be used')
+        }
+        stages {
+            stage('Checkout') {
+                    steps {
+                        script {
+                            version = "${env.BUILD_NUMBER}"
+                            workdir = "$version"
+                        }
+                        //slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                         rocketSend channel: 'devs_lab2lab', message: "Jenkins Started the job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                        dir(workdir) {
+                            checkout([$class: 'GitSCM', branches: [[name: "${params.GIT_BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bitbucket', url: 'git@bitbucket.org:pixeon/l2l.git']]])
+                            script {
+                                currentBuild.displayName = "lab2lab:${params.GIT_BRANCH} (#${currentBuild.number})"
+                                workdir = pwd()
+                            }
+                        }
+                    }
+            }
+
+        stage('Code Quality') {
+                parallel {
+                    stage('Unit Test') {
+                        steps {
+                            dir(workdir) {
+                                 echo "Unit Test"
+                                 //sh 'docker run -v ${PWD}:/app/ -w="/app" microsoft/aspnetcore-build:1.0-1.1 dotnet test /app/Lab2Lab.sln'
+                            }
+                        }
+                    }
+                    stage('Coverage') {
+                        steps {
+                            dir(workdir) {
+                            echo "Running Coverage"
+  
+                            }
+                        }
+                    }
+                }
+            } 
+
+            stage('Build') {
+                steps {
+                    node('master') {
+                        dir(workdir) {
+                                echo 'Start Build Step'
+                                sh 'docker-compose build'
+                        }
+                    }
+                }
+            }
+            stage('Integration Tests') {
+                steps {
+                        dir(workdir) {
+                            echo 'Test Containers Api'
+                            // sh 'docker-compose up test-api'
+
+                        }
+                }
+            }
+            stage('Push Images') {
+                steps {
+                    node('master') {
+                        dir(workdir) {
+                                echo 'Start Push to Repository Step'
+                                sh 'docker login registry.pixeon.cloud -u jenkins-sre -p T422ARNuEWwPTetp'
+                                sh 'docker-compose push pixeon.lab2lab.solicitacaoetiqueta pixeon.lab2lab.reports lab2lab.api'
+                        }
+                    }
+                }
+            }
+            stage('Deploy Staging') {
+                parallel {
+                    stage('lab2lab api') {
+                        steps {
+                                echo 'Start Deploy Lab2Lab Api'
+                                rancher confirm: true, credentialId: 'rancher-api-key-master', endpoint: 'https://caas.pixeon.cloud/v2-beta', environmentId: '1a238', ports: '', startFirst: '', environments: '', image: 'registry.pixeon.cloud/lab2labapi', service: 'lab2lab/lab2labapi', timeout: 50
+                                rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} of Lab2Lab Api SUCCESSFUL DEPLOYED in STAGING - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                        }
+                    }
+                    stage('lab2lab reports') {
+                        steps {
+                                echo 'Start Deploy Lab2Lab Reports'
+                                rancher confirm: true, credentialId: 'rancher-api-key-master', endpoint: 'https://caas.pixeon.cloud/v2-beta', environmentId: '1a238', ports: '', startFirst: '',environments: '', image: 'registry.pixeon.cloud/lab2labreports', service: 'lab2lab/lab2labreports', timeout: 50
+                                rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} of Lab2Lab Reports SUCCESSFUL DEPLOYED in STAGING - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+
+                        }
+                    }
+
+                    stage('lab2lab etiqueta') {
+                        steps {
+                                echo 'Start Deploy Lab2Lab Etiqueta'
+                                rancher confirm: true, credentialId: 'rancher-api-key-master', endpoint: 'https://caas.pixeon.cloud/v2-beta', environmentId: '1a238', ports: '', startFirst: '',environments: '', image: 'registry.pixeon.cloud/lab2labsolicitacaoetiqueta', service: 'lab2lab/lab2labsolicitacaoetiqueta', timeout: 50  
+                                rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} -build:${env.BUILD_NUMBER} of Lab2Lab Etiqueta SUCCESSFUL DEPLOYED in STAGING - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                        }
+                    }
+                
+                }   
+            }
+         /*stage('Approve Deploy Production'){
+                steps {
+                    script {  
+                        env.DEPLOYPROD = input message: 'Deploy Microservices to Production ?',
+                        ok: 'Deploy!',
+                        parameters: [booleanParam(defaultValue: false, description: 'If you like deploy to prod',name: 'Yes?')]
+             
+                    }
+                    rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} of Lab2Lab Need a Approval - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                      }
+                        
+           }
+        stage('Deploy Production') {
+                steps {
+                        dir(workdir) {
+                            echo 'Start Deploy Production'
+
+                        }
+                }
+            }
+        */
+        }
+        post {
+            always {
+                dir(workdir) {
+                echo 'Delete workdir'
+                deleteDir()
+                }
+            }
+            aborted {
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+            rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+            echo 'aborted'
+            }
+            failure {
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+             rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+            echo 'failure'
+            }        
+            success {
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+             rocketSend channel: 'devs_lab2lab', message: "The job ${env.JOB_NAME} branch:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+            echo 'success'
+            }
+        }
+    }

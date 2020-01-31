@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-dev-api-agfa
+  namespace: agfakorus-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-dev-api-agfa
+  template:
+    metadata:
+      labels:
+        app: agfakorus-dev-api-agfa
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-dev-api-agfa
+        image: "registry.pixeon.cloud/korus/api-agfa:dev-1.0.0.26"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: agfa-dev-apiagf
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://agfakorus-dev-api-agfa"
+        - name: "ConnectionStrings__mongodb"
+          value: "mongodb://agfakorus-dev-mongo:27017/"
+        - name: "RabbitMq__hostname"
+          value: "agfakorus-dev-rabbitmq"
+        - name: "RabbitMq__port"
+          value: "5672"
+        - name: "RabbitMq__user"
+          value: "agfadevrabbit"
+        - name: "RabbitMq__password"
+          value: "04Kisq3bMwLy9zGj"
+        - name: "RabbitMq__queue.consumer"
+          value: "Agfa"
+        - name: "Services__Agfa__Url"
+          value: "http://200.162.129.74:8081/services/integraEI?wsdl"
+        - name: "Services__Agfa__Usuario"
+          value: "pixeon"
+        - name: "Services__Agfa__Senha"
+          value: "at@at"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-dev-api-agfa
+  namespace: agfakorus-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: agfakorus-dev-api-agfa

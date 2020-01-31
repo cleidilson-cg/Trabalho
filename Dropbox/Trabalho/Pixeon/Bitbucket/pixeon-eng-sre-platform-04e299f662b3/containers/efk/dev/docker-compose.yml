@@ -1,0 +1,39 @@
+version: '2'
+services:
+  elasticsearch:
+    mem_limit: 1610612736
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+    volumes:
+    - efk-elasticsearch-data:/usr/share/elasticsearch/data
+    mem_reservation: 1610612736
+    ports:
+    - 9200:9200/tcp
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.4.2
+    links:
+    - elasticsearch:elasticsearch
+    ports:
+    - 5601:5601/tcp
+    labels:
+      traefik.frontend.rule: Host:efk.dev.pixeon.cloud
+      traefik.frontend.auth.basic: admin:$$apr1$$PnPumRP3$$.Mq24U7RrQyzMEc0l.1tI1
+      traefik.enable: 'true'
+      traefik.backend: kibana-efk
+      traefik.port: '5601'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+  fluentd:
+    image: registry.pixeon.cloud/sre-fluentd:1.0.0
+    stdin_open: true
+    tty: true
+    links:
+    - elasticsearch:elasticsearch
+    ports:
+    - 24224:24224/udp
+    - 24224:24224/tcp
+    labels:
+      io.rancher.scheduler.global: 'true'
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always

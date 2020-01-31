@@ -1,0 +1,34 @@
+version: '2'
+services:
+  jenkins-plugins:
+    image: rancher/jenkins-plugins:v0.1.1
+  jenkins-primary:
+    image: jenkins/jenkins:2.92
+    entrypoint:
+    - /usr/share/jenkins/rancher/jenkins.sh
+    volumes_from:
+    - jenkins-plugins
+    - jenkins-datavolume
+    ports:
+    - 8080:8080/tcp
+    labels:
+      traefik.frontend.rule: Host:ci.pixeon.cloud
+      io.rancher.sidekicks: jenkins-plugins,jenkins-datavolume
+      traefik.enable: 'true'
+      traefik.backend: ci
+      traefik.port: '8080'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+  jenkins-datavolume:
+    image: busybox
+    entrypoint:
+    - chown
+    - -R
+    - 1000:1000
+    - /var/jenkins_home
+    volumes:
+    - /var/lib/docker/jenkins-ci:/var/jenkins_home
+    labels:
+      io.rancher.container.start_once: 'true'

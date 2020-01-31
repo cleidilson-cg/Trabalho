@@ -1,0 +1,92 @@
+pipeline {
+    agent { label 'master' }
+
+     tools { 
+        maven 'maven' 
+        jdk 'jdk1.8.0_191' 
+    }
+
+    stages {
+        stage('Checkout') {
+                steps {
+                    script {
+                        version = "${env.BUILD_NUMBER}"
+                        workdir = "$version"
+                    }
+                    //slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                    dir(workdir) {
+                        checkout([$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/pixeon-automation-framework.git']]])
+                        script {
+                            workdir = pwd()
+                        }
+                    }
+                }
+        }
+
+      stage('Code Quality') {
+            parallel {
+                stage('Unit Test') {
+                    steps {
+                        dir(workdir) {
+                            echo "Running Unit Test"
+                            //mvn test
+                        }
+                    }
+                }
+                stage('Coverage') {
+                    steps {
+                        dir(workdir) {
+                          echo "Running Coverage"
+                            /*
+                            “C:\Tools\opencover\OpenCover.Console.exe” -register:user -target:”C:\Program Files (x86)\NUnit.org\nunit-console\nunit3-console.exe” -targetargs:”C:\JenkinsProjects\{YOUR PROJECT PATH}\bin\Debug\KariyerNet.Business.ECommerce.UnitTests.dll –result=TestResult.xml;format=nunit2″ -filter:+
+                            https://www.swtestacademy.com/jenkins-dotnet-integration/
+                            */
+                        }
+                    }
+                }
+            }
+        }        
+
+        stage('Build') {
+            steps {
+                node('master') {
+                    dir(workdir) {
+                            echo 'Start Build Step'
+                            bat '''
+                            C:\\maven\\bin\\mvn clean install -s c:\\maven\\conf\\settings.xml
+                            '''
+                            echo 'Building Artifacts'
+                    }
+                }
+            }
+        }
+        stage('Upload Artifact') {
+            steps {
+                    dir(workdir) {
+                           bat '''
+                           C:\\maven\\bin\\mvn deploy 
+                           '''
+                    }
+            }
+        }
+    }
+    post {
+        always {
+            dir(workdir) {
+                deleteDir()
+            }
+        }
+        aborted {
+            echo 'Aborted'
+            //slackSend channel: 'sre_depzsloys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+        failure {
+            echo 'Failure'
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }        
+        success {
+            echo 'Success'
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+    }
+}

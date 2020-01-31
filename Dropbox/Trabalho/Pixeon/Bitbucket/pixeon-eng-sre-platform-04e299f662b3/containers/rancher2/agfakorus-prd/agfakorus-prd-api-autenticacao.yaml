@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-prd-api-autenticacao
+  namespace: agfakorus-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-prd-api-autenticacao
+  template:
+    metadata:
+      labels:
+        app: agfakorus-prd-api-autenticacao
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-prd-api-autenticacao
+        image: "registry.pixeon.cloud/korus/api-autenticacao:latest"
+        ports:
+        - containerPort: 80
+          name: agfa-prd-apiaut
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://agfakorus-prd-api-autenticacao"
+        - name: "ConnectionsStrings__dev"
+          value: "Data Source=pixeon-teste-db.pleres.net;Initial Catalog=Pleres-Femme_Teste;User ID=desenvolvimento;Password=3Lg3pp9YJ%yuR#w9;"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-prd-api-autenticacao
+  namespace: agfakorus-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: agfakorus-prd-api-autenticacao

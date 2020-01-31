@@ -1,0 +1,50 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: agfakorus-api-dev-ingress
+  namespace: agfakorus-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+    nginx.org/client-max-body-size: "2m"
+spec:
+  tls:
+  - hosts:
+    - agfakorus-api-agfa.dev.pixeon.cloud
+    secretName: agfakorus-api-dev-secret
+  rules:
+  - host: agfakorus-api-agfa.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-dev-api-agfa
+          servicePort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: agfakorus-dev-ingress
+  namespace: agfakorus-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - agfakorus-api-documentos.dev.pixeon.cloud
+    - agfakorus-rabbitmq.dev.pixeon.cloud
+    secretName: agfakorus-dev-secret
+  rules:
+  - host: agfakorus-api-documentos.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-dev-api-agfa-documentos
+          servicePort: 80
+  - host: agfakorus-rabbitmq.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-dev-rabbitmq-web
+          servicePort: 15672

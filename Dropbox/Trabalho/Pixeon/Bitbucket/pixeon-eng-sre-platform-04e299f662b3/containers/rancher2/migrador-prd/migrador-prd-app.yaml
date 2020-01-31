@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: migration-prd-app
+  namespace: migration-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: migration-prd-app
+  template:
+    metadata:
+      labels:
+        app: migration-prd-app
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: migration-prd-app
+        image: "registry.pixeon.cloud/migrationfe:latest"
+        ports:
+        - containerPort: 8080
+          name: migration-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: migration-prd-app
+  namespace: migration-prd
+spec:
+  ports:
+  - port: 8080
+  selector:
+    app: migration-prd-app

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-medicos
+  namespace: korus-apis-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-medicos
+  template:
+    metadata:
+      labels:
+        app: api-medicos
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-medicos
+        image: "registry.pixeon.cloud/korus/api-medicos:dev-1.0.0.10"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-medicos
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-medicos
+  namespace: korus-apis-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-medicos

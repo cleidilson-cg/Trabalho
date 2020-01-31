@@ -1,0 +1,71 @@
+version: "3"
+services:
+    korus-web-home:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.Home
+        image: registry.pixeon.cloud/korus:web.home
+#        depends_on:
+#          - redis
+        ports:
+          - 8800:80
+        labels:
+          - "traefik.backend=korus-web-home"
+          - "traefik.frontend.entryPoints=https"
+          - "traefik.frontend.rule=Host:pleres.docker.pleres.net"
+    korus-web-pleres:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.Pleres
+        image: registry.pixeon.cloud/korus:web.pleres
+        ports:
+          - 8801:80
+        labels:
+          - "traefik.backend=korus-web-pleres"
+          - "traefik.frontend.entryPoints=https"
+          - "traefik.frontend.rule=Host:pleres.docker.pleres.net"
+    korus-web-bussola:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.Bussola
+        image: registry.pixeon.cloud/korus:web.bussola
+        ports:
+          - 8802:80
+    korus-web-sac:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.SAC
+        image: registry.pixeon.cloud/korus:web.sac
+        ports:
+          - 8803:80
+    korus-web-rol:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.ROL
+        image: registry.pixeon.cloud/korus:web.rol
+        ports:
+          - 8807:80
+    korus-web-mobile:
+        build:
+            context: ./
+            dockerfile: docker/Dockerfile.Web.Mobile
+        image: registry.pixeon.cloud/korus:web.mobile
+        ports:
+          - 8809:80
+    redis:
+        image: registry.pixeon.cloud/korus:redis-windows
+  
+    traefik:
+        image: stefanscherer/traefik-windows
+        # we need the IP of the vEthernet (HNS Internal NIC)
+        command: --docker.endpoint=tcp://172.30.0.163:2376 --logLevel=DEBUG
+        ports:
+          - "8888:8080"
+          - "443:443"
+        volumes:
+          - .:C:/etc/traefik
+
+#networks:
+#  default:
+#    external:
+#      name: nat

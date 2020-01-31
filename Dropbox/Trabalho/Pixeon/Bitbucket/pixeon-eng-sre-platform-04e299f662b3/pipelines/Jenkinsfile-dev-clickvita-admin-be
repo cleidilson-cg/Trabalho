@@ -1,0 +1,113 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Git - Checkout App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: ${BITBUCKET_REPOSITORY} / Branch: ${BITBUCKET_BRANCH}"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${BITBUCKET_BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'scm_pixeon', url: "git@bitbucket.org:pixeon/${BITBUCKET_REPOSITORY}.git"]]])
+                    script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }
+        stage('Docker - Build Image') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Docker - Build Image'
+                    sh '''
+                       docker build --build-arg ENVIRONMENT="${DOCKER_BUILD_ENVIRONMENT}" -t registry.pixeon.cloud/"${NEXUS_IMAGE_NAME}":latest -t registry.pixeon.cloud/"${NEXUS_IMAGE_NAME}":"${BUILD_NUMBER}" .
+                    '''
+                }
+            }
+        }
+        stage('Nexus - Push Image') {
+            environment {
+                NEXUS_CREDENTIALS = credentials('nexus')
+            }
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Nexus - Push Docker Image'
+                    sh '''
+                       docker login -p ${NEXUS_CREDENTIALS_PSW} -u ${NEXUS_CREDENTIALS_USR} http://registry.pixeon.cloud
+                       docker push registry.pixeon.cloud/"${NEXUS_IMAGE_NAME}"
+                    '''
+                }
+            }
+        }
+        stage('Docker - Clean Local Images') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Docker - Clean Local Images'
+                    sh '''
+                       docker rmi registry.pixeon.cloud/"${NEXUS_IMAGE_NAME}":latest registry.pixeon.cloud/"${NEXUS_IMAGE_NAME}":"${BUILD_NUMBER}"
+                    '''
+                }
+            }
+        }
+        stage('Rancher - Deploy') {
+            environment {
+                token = credentials('TOKEN-RANCHER2-DEV')
+            }
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Deploy - Kubernetes by API Rancher'
+                    deploy()
+                }
+            }
+        }
+    }
+}
+
+def deploy() {
+
+    def newTimeStamp = new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+
+    def finalImageName = "registry.pixeon.cloud/${NEXUS_IMAGE_NAME}:${BUILD_NUMBER}"
+
+    def containerName = "${RANCHER_CONTAINER_NAME}"
+
+    def response = sh(script: "curl -s -u \"${token}\" \
+                            -X GET \
+                            -H \"Connection: keep-alive\" \
+                            -H \"Pragma: no-cache\" \
+                            -H \"Cache-Control: no-cache\" \
+                            -H \"content-type: application/json\" \
+                            -H \"Accept: application/json\" \
+                            https://caasaz.pixeon.cloud/v3/project/c-j8q9t:p-86nqj/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" , returnStdout: true)
+
+
+    def jsonData = readJSON text: response
+    jsonData.actions = null
+    jsonData.annotations["cattle.io/timestamp"] = newTimeStamp
+    jsonData.containers[0].image = finalImageName.toString()
+    jsonData.containers[0].name = containerName.toString()
+
+    def body = jsonData.toString()
+
+    sh "curl -s -u \"${token}\" \
+                -X PUT \
+                -H \"Connection: keep-alive\" \
+                -H \"Pragma: no-cache\" \
+                -H \"Cache-Control: no-cache\" \
+                -H \"Content-type: application/json\" \
+                -H \"Accept: application/json\" \
+                --data-binary '${body}' --compressed \
+                https://caasaz.pixeon.cloud/v3/project/c-j8q9t:p-86nqj/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}"
+}

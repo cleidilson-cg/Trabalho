@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qas
+  namespace: korus-apis-qas
+data:
+  auth: 'cWFzOiRhcHIxJDdXeHBLQ0gyJFdGTHd5QlhkLjh2QmZXVEM4dTlzMC8K' #htpasswd -c ./auth suporte --> cat auth | base64
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: korus-apis-qas-ingress
+  namespace: korus-apis-qas
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/auth-realm: Authentication Required
+    nginx.ingress.kubernetes.io/auth-secret: qas
+    nginx.ingress.kubernetes.io/auth-type: basic
+spec:
+  tls:
+  - hosts:
+    - korus-convenios.qas.pixeon.cloud
+    - korus-exame.qas.pixeon.cloud
+    - korus-exame-faturamento.qas.pixeon.cloud
+    - korus-exame-matriz.qas.pixeon.cloud
+    - korus-medicos.qas.pixeon.cloud
+    - korus-origem.qas.pixeon.cloud
+    - korus-pessoa.qas.pixeon.cloud
+    - korus-planos.qas.pixeon.cloud
+    - korus-unidades.qas.pixeon.cloud
+    - korus-integrador.qas.pixeon.cloud
+    secretName: korus-apis-qas-secret
+  rules:
+  - host: korus-convenios.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-convenios
+          servicePort: 80
+  - host: korus-exame.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-exame
+          servicePort: 80
+  - host: korus-exame-faturamento.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-exame-faturamento
+          servicePort: 80
+  - host: korus-exame-matriz.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-matriz
+          servicePort: 80
+  - host: korus-medicos.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-medicos
+          servicePort: 80
+  - host: korus-origem.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-origem
+          servicePort: 80
+  - host: korus-pessoa.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-pessoa
+          servicePort: 80
+  - host: korus-planos.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-planos
+          servicePort: 80
+  - host: korus-unidades.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-unidades
+          servicePort: 80
+  - host: korus-integrador.qas.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: api-integrador
+          servicePort: 80
+

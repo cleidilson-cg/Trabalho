@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: pix-config-api-dev-ingress
+  namespace: pix-config-api-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - config-api.dev.pixeon.cloud
+    secretName: pix-config-api-dev
+  rules:
+  - host: config-api.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: pix-config-api-dev
+          servicePort: 80

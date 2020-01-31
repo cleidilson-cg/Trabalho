@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-prd-api-atendimento
+  namespace: agfakorus-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-prd-api-atendimento
+  template:
+    metadata:
+      labels:
+        app: agfakorus-prd-api-atendimento
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-prd-api-atendimento
+        image: "registry.pixeon.cloud/korus/api-atendimento:latest"
+        ports:
+        - containerPort: 80
+          name: agfa-prd-apiatd
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://agfakorus-prd-api-atendimento"
+        - name: "ConnectionsStrings__sql"
+          value: "Data Source=pixeon-teste-db.pleres.net;Initial Catalog=Pleres-Femme_Teste;User ID=desenvolvimento;Password=3Lg3pp9YJ%yuR#w9;"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-prd-api-atendimento
+  namespace: agfakorus-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: agfakorus-prd-api-atendimento

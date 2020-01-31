@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-qas-solicitacaoetiqueta
+  namespace: l2l-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-qas-solicitacaoetiqueta
+  template:
+    metadata:
+      labels:
+        app: l2l-qas-solicitacaoetiqueta
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-qas-solicitacaoetiqueta
+        image: "registry.pixeon.cloud/lab2labsolicitacaoetiqueta-homologacao"
+        ports:
+        - containerPort: 80
+          name: l2l-qas-soletiq
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://l2l-qas-solicitacaoetiqueta"
+        - name: "Aws__S3.accesskeyid"
+          value: "AKIAIIO2XWZPYSHPRO7Q"
+        - name: "Aws__S3.bucket"
+          value: "pixeon-cloud-qas"
+        - name: "Aws__S3.secretaccesskey"
+          value: "MLaXKhSOnLlhA0C+94pHcvfwDh1iDf//ObWI9NoX"
+        - name: "Aws__S3.uri"
+          value: "https://pixeon-cloud-qas.s3.amazonaws.com"
+        - name: "LabelRequestConfig__uri.alvaro"
+          value: "http://webservice.alvaro.com.br/webserviceaol/rest/producao"
+        - name: "Labs__Alvaro__url"
+          value: "http://webservice.alvaro.com.br/webserviceaol/rest/producao"
+        - name: "Labs__HermesPardini__LabelRequestSoapAction"
+          value: "http://hermespardini.com.br/b2b/apoio/schemas/HPWS.XMLServer.getPedido"
+        - name: "Labs__HermesPardini__url"
+          value: "https://www.hermespardini.com.br/b2bhomologa/HPWS.XMLServer.cls"
+        - name: "MongoDB__connectionstring"
+          value: "mongodb://l2l-qas-mongo:27017/"
+        - name: "RabbitMq__hostname"
+          value: "l2l-qas-rabbitmq"
+        - name: "RabbitMq__port"
+          value: "5672"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-qas-solicitacaoetiqueta
+  namespace: l2l-qas
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: l2l-qas-solicitacaoetiqueta

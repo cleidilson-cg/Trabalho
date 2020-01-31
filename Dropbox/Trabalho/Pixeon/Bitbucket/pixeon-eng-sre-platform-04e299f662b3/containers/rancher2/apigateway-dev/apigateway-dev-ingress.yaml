@@ -1,0 +1,27 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: apigateway-dev-ingress
+  namespace: apigateway-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - apigateway.dev.pixeon.cloud
+    - apigateway-admin.dev.pixeon.cloud
+    secretName: apigateway-dev-secret
+  rules:
+  - host: apigateway.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: apigateway-kong-proxy
+          servicePort: 80
+  - host: apigateway-admin.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: apigateway-konga
+          servicePort: 80

@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailcheck-prd-api
+  namespace: mailcheck-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailcheck-prd-api
+  template:
+    metadata:
+      labels:
+        app: mailcheck-prd-api
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: mailcheck-prd-api
+        image: "registry.pixeon.cloud/pixeon-email-check:latest"
+        ports:
+        - containerPort: 80
+          name: api
+        env:
+        - name: CHAIN
+          value: mailgun
+        - name: MAILGUN_ACCEPT_RISK
+          value: low;medium
+        - name: MAILGUN_ACCEPT_STATUS
+          value: deliverable;unknown
+        - name: MAILGUN_URL
+          value: https://api.mailgun.net/v4/address/validate?address={Value}
+        - name: MAILGUN_AUTH
+          valueFrom:
+           secretKeyRef:
+             name: mailcheck-prd-secret
+             key: MAILGUN_AUTH
+        - name: REDIS_DBID_ACCOUNTS
+          value: "1"
+        - name: REDIS_DBID_MAIL_LIST
+          value: "0"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: REDIS_SERVER
+          value: mailcheck-prd-redis
+        - name: REDIS_PASSWORD
+          valueFrom:
+           secretKeyRef:
+             name: mailcheck-prd-secret
+             key: REDIS_PASSWORD
+        - name: SECRET_KEY
+          valueFrom:
+           secretKeyRef:
+             name: mailcheck-prd-secret
+             key: SECRET_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailcheck-prd-api
+  namespace: mailcheck-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: mailcheck-prd-api

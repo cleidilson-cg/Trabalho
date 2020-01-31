@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: certificacao-digital-certsign-dev
+  namespace: certificacao-digital-certsign-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: certificacao-digital-certsign-dev
+  template:
+    metadata:
+      labels:
+        app: certificacao-digital-certsign-dev
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: certificacao-digital-certsign-dev
+        image: "registry.pixeon.cloud/certificacao-digital-certsign:latest"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: certificacao-digital-certsign-dev
+  namespace: certificacao-digital-certsign-dev
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: certificacao-digital-certsign-dev

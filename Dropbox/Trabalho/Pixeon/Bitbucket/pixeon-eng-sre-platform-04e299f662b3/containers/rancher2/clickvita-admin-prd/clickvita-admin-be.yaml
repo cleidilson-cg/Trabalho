@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickvita-admin-be
+  namespace: clickvita-admin-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickvita-admin-be
+  template:
+    metadata:
+      labels:
+        app: clickvita-admin-be
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: clickvita-admin-be
+        image: "registry.pixeon.cloud/clickvita/clickvita-admin-be:latest"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: JAVA_OPTS
+          value: -Dspring.profiles.active=prod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickvita-admin-be
+  namespace: clickvita-admin-prd
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: clickvita-admin-be

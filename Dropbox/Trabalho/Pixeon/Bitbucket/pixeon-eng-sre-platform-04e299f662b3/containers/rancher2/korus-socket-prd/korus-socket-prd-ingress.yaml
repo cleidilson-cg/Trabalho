@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: korus-socket-prd-ingress
+  namespace: korus-socket-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.org/websocket-services: "korus-socket-prd-app"
+spec:
+  tls:
+  - hosts:
+    - korus-socket.pixeon.cloud
+    secretName: korus-socket-prd-secret
+  rules:
+  - host: korus-socket.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: korus-socket-prd-app
+          servicePort: 80

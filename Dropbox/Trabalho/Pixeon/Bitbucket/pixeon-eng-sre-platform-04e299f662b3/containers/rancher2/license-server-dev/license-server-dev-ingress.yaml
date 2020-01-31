@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: login-auth-basic
+  namespace: license-server-dev
+data:
+  auth: 'bGljZW5zZV9zZXJ2ZXI6JGFwcjEkSzdIT2RweFEkZGd5cXFZTUVkRUV0SWVhTDdzdGIxLwo=' #htpasswd -c ./auth license_server && cat auth | base64
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: license-server-dev-ingress
+  namespace: license-server-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/auth-realm: Authentication Required
+    nginx.ingress.kubernetes.io/auth-secret: login-auth-basic
+    nginx.ingress.kubernetes.io/auth-type: basic
+spec:
+  tls:
+  - hosts:
+    - license-server.dev.pixeon.cloud
+    secretName: license-server-dev-secret
+  rules:
+  - host: license-server.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: license-server
+          servicePort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: license-server-dev-api-ingress
+  namespace: license-server-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - license-server-api.dev.pixeon.cloud
+    secretName: license-server-dev-secret
+  rules:
+  - host: license-server-api.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: crm-clientes-api
+          servicePort: 80

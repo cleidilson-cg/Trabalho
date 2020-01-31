@@ -1,0 +1,190 @@
+{
+    "korus_app" : {
+    "sites_enabled" : ["Mostarda","Roxo"],
+    "redis" : {
+        "enable" : true,
+        "host" : "tstalliarredis01.9legu3.ng.0001.sae1.cache.amazonaws.com"
+
+    },
+    "gw" : {
+
+        "url" : "http://pleres.net",
+        "db_host" : "gwdb.pleres.net",
+        "db_name" : "Digitalmed-Cloud",
+        "db_user" : "digitalmed.cloud",
+        "db_pass" : "Ni3ewM3L4Y$NeS5lSz@rU5ve"
+
+    },
+    "dev_mode" : false,
+    "root_dir" : "D:\\App",
+    "temp_artifacts_dir" : "Z:\\temp",
+    "enable_shared_folder" : true,
+    "environments" : [
+        {
+            "name" : "Mostarda",
+            "version" : "origin/alliar.v2.9.7",
+            "configs_version" : "v2.9",
+            "customers" : [
+                {
+                    "name" : "GCO_Homolog",
+                    "data_source" : "db.dev.alliar.pleres.net",
+                    "db_name" : "Pleres-GCO_Homolog",
+                    "db_user" : "pleresnet",
+                    "db_pass" : "e0eAk@B5aZ",
+                    "qmatic" : true,
+                    "comunicacao_teleradiologia": true,
+                    "comunicacao_labapoio_teleradiologia": true
+                }
+            ],
+            "windows_services" : [
+
+                {
+                    "name": "SrvWin.FilaProcessamento"
+                },
+
+                {
+                    "name": "SrvWin.IntegracaoQmatic"
+                },
+                {
+                    "name": "SrvWin.Comunicacao"
+                },
+                {
+                    "name": "SrvWin.ComunicacaoLaboratorioApoio"
+                }
+                
+            ],
+            "filas_processamento" : [
+                {
+                    "name" : "ComissaoVendedor"
+                },
+                {
+                    "name" : "EntregaResultadoLote"
+                },
+                {
+                    "name" : "Faturamento"
+                },
+                {
+                    "name" : "FaturamentoLaboratorioApoiado"
+                },
+                {
+                    "name" : "ImportacaoCadastro"
+                },
+                {
+                    "name" : "Importador"
+                },
+                {
+                    "name" : "IntegracaoErp"
+                },
+                {
+                    "name" : "IntegracaoSadig"
+                },
+                {
+                    "name" : "IntegracaoMotoboy"
+                },
+                {
+                    "name" : "LaboratorioApoiado"
+                },
+                {
+                    "name" : "LaboratorioApoio"
+                },
+                {
+                    "name" : "Limpeza"
+                },
+                {
+                    "name" : "Mensagem"
+                },
+                {
+                    "name" : "NotaFiscal"
+                },
+                {
+                    "name" : "PainelSenha"
+                },
+                {
+                    "name" : "RepasseLote"
+                }
+
+            ]
+        },
+        {
+            "name" : "Roxo",
+            "version" : "origin/alliar.v2.9.7",
+            "configs_version" : "v2.9",
+            "customers" : [
+                {
+                    "name" : "sre",
+                    "data_source" : "db.dev.alliar.pleres.net",
+                    "db_name" : "Pleres-sre",
+                    "db_user" : "pleresnet",
+                    "db_pass" : "e0eAk@B5aZ"
+                }
+            ],
+            "windows_services" : [
+
+                {
+                    "name": "SrvWin.FilaProcessamento"
+                }
+            ],
+            "filas_processamento" : [
+                {
+                    "name" : "ComissaoVendedor"
+                },
+                {
+                    "name" : "EntregaResultadoLote"
+                },
+                {
+                    "name" : "Faturamento"
+                },
+                {
+                    "name" : "FaturamentoLaboratorioApoiado"
+                },
+                {
+                    "name" : "ImportacaoCadastro"
+                },
+                {
+                    "name" : "Importador"
+                },
+                {
+                    "name" : "IntegracaoErp"
+                },
+                {
+                    "name" : "IntegracaoSadig"
+                },
+                {
+                    "name" : "IntegracaoMotoboy"
+                },
+                {
+                    "name" : "LaboratorioApoiado"
+                },
+                {
+                    "name" : "LaboratorioApoio"
+                },
+                {
+                    "name" : "Limpeza"
+                },
+                {
+                    "name" : "Mensagem"
+                },
+                {
+                    "name" : "NotaFiscal"
+                },
+                {
+                    "name" : "PainelSenha"
+                },
+                {
+                    "name" : "RepasseLote"
+                }
+
+            ]
+        }
+]       
+},
+"tags": [
+    "pleres_app_env_mostarda",
+    "pleres_app_env_roxo",
+    "pleres_app_server_winservices",
+    "customer_alliar",
+    "TSTALLIARPLERES01",
+    "test"
+  ]
+
+}

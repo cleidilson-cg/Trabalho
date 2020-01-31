@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: stg-pixeon-hub-ingress
+  namespace: stg-pixeon-hub
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - stg.rest.hub.pixeon.cloud
+    secretName: stg-pixeon-hub
+  rules:
+  - host: stg.rest.hub.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: stg-rest-hub
+          servicePort: 9090
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: stg-pixeon-hub-grpc-ingress
+  namespace: stg-pixeon-hub
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+spec:
+  tls:
+  - hosts:
+    - stg.grpc.hub.pixeon.cloud
+    secretName: stg-pixeon-hub
+  rules:
+  - host: stg.grpc.hub.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: stg-grpc-hub
+          servicePort: 8080

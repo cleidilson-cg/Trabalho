@@ -1,0 +1,64 @@
+version: '2'
+volumes:
+  teampass-db-data: {}
+  teampass-app-data: {}
+services:
+  teampass:
+    image: registry.pixeon.cloud/sre-tools:teampass
+    volumes:
+    - teampass-app-data:/var/www/html
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.dev.pixeon.cloud:24224
+        tag: docker.teampass
+    links:
+    - db:db
+    labels:
+      traefik.frontend.rule: Host:vault.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: teampass
+      traefik.port: '80'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+  vault-backup:
+    image: registry.pixeon.cloud/sre-tools:dockup
+    environment:
+      AWS_ACCESS_KEY_ID: AKIAILZ7TC7NYQGPNCXA-
+      AWS_SECRET_ACCESS_KEY: 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-
+      PATHS_TO_BACKUP: /vault-app-data /vault-db-data
+      S3_BUCKET_NAME: pixeon-cloud-backups
+      S3_FOLDER: containers/vault/
+      RESTORE: 'false'
+      NOTIFY_SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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
+      NOTIFY_BACKUP_SUCCESS: 'true'
+      NOTIFY_BACKUP_FAILURE: 'true'
+      LAST_BACKUP: backup_filename_in_s3_folder
+    stdin_open: true
+    volumes:
+    - teampass-app-data:/vault-app-data:ro
+    - teampass-db-data:/vault-db-data:ro
+    tty: true
+    logging:
+      driver: none
+    labels:
+      io.rancher.container.start_once: 'true'
+      io.rancher.container.pull_image: always
+      cron.schedule: 0 0 3 * * ?
+      cron.action: start
+  db:
+    image: mysql/mysql-server:5.7
+    environment:
+      MYSQL_DATABASE: teampass
+      MYSQL_PASSWORD: 324807df6827ed04bce6262fe8afa09f
+      MYSQL_ROOT_PASSWORD: 5d34267f8fcf4a6f21b4569cef2cd500
+      MYSQL_USER: teampass
+    volumes:
+    - teampass-db-data:/var/lib/mysql
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: fluentd.dev.pixeon.cloud:24224
+        tag: docker.teampass

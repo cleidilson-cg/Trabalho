@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-prd-api
+  namespace: l2l-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-prd-api
+  template:
+    metadata:
+      labels:
+        app: l2l-prd-api
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-prd-api
+        image: "registry.pixeon.cloud/lab2labapi:latest"
+        ports:
+        - containerPort: 80
+          name: l2l-prd-api
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://l2l-prd-api"
+        - name: "LabelRequestConfig__api.add"
+          value: "http://l2l-prd-solicitacaoetiqueta/material/validatelabeladd"
+        - name: "LabelRequestConfig__api.request"
+          value: "http://l2l-prd-solicitacaoetiqueta/material/validatelabelrequest"
+        - name: "RabbitMq__hostname"
+          value: "l2l-prd-rabbitmq"
+        - name: "RabbitMq__port"
+          value: "5672"
+        - name: "LabelRequestConfig__api.baseurl"
+          value: "http://l2l-prd-solicitacaoetiqueta"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-prd-api
+  namespace: l2l-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: l2l-prd-api

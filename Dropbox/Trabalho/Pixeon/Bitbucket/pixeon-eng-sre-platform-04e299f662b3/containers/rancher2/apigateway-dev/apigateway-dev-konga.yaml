@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apigateway-konga
+  namespace: apigateway-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: konga
+  template:
+    metadata:
+      labels:
+        app: konga
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: konga
+        image: "pantsel/konga:next"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 1337
+          name: http
+        env:
+        - name: DB_ADAPTER
+          value: postgres
+        - name: DB_HOST
+          value: apigateway-postgresql
+        - name: DB_USER
+          value: kong
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: postgresql-password
+              name: apigateway-postgresql
+        - name: DB_DATABASE
+          value: konga_db
+        - name: TOKEN_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: apigateway-konga
+              key: apigateway-konga-token
+        - name: NODE_ENV
+          value: production
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: '0'
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - exec /app/start.sh -c prepare -a postgres -u postgresql://kong:"${DB_PASSWORD}"@apigateway-postgresql:5432/konga_db
+        name: konga-prepare
+        image: "pantsel/konga:next"
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: apigateway-postgresql
+              key: postgresql-password
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apigateway-konga
+  namespace: apigateway-dev
+spec:
+  ports:
+  - port: 80
+    targetPort: 1337
+  selector:
+    app: konga

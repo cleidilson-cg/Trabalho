@@ -1,0 +1,143 @@
+{
+    "korus_app" : {
+    "sites_enabled" : ["Jambo"],
+    "redis" : {
+        "enable" : true,
+        "host" : "alliar.redis.prod.pleres.net"
+
+    },
+    "gw" : {
+
+        "url" : "http://pleres.net",
+        "db_host" : "gwdb.pleres.net",
+        "db_name" : "Digitalmed-Cloud",
+        "db_user" : "digitalmed.cloud",
+        "db_pass" : "Ni3ewM3L4Y$NeS5lSz@rU5ve"
+
+    },
+    "dev_mode" : false,
+    "root_dir" : "D:\\App",
+    "temp_artifacts_dir" : "Z:\\temp",
+    "mount_shared_folder" : true,
+    "app_insights": {
+        "enable" : true,
+        "key" : "777e37a1-d047-4014-95cd-d42fc29980d7"
+    },
+    "environments" : [
+        {
+            "name" : "Jambo",
+            "version" : "origin/alliar.v2.9.7",
+            "configs_version" : "v2.9",
+            "customers" : [
+                {
+                    "name" : "GCO_Staging",
+                    "data_source" : "db.dev.alliar.pleres.net",
+                    "db_name" : "Pleres-GCO_Staging",
+                    "db_user" : "pleresnet",
+                    "db_pass" : "e0eAk@B5aZ"
+                }
+            ],
+            "sites" : [
+                {
+                    "name": "Web.Home",
+                    "port" :"8800",
+                    "bindings": "http://home.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Pleres",
+                    "port" :"8801",
+                    "bindings": "http://pleres.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.SAC",
+                    "port": "8802",
+                    "bindings": "http://sac.jambo.pleres.net:80"
+                },
+                {
+                    "name": "Web.Bussola",
+                    "port" :"8803",
+                    "bindings": "http://bussola.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Questionario",
+                    "port" :"8804",
+                    "bindings": "http://questionario.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.WCF",
+                    "port": "8805",
+                    "bindings": "http://wcf.jambo.pleres.net:80"
+                },       
+                {
+                    "name": "Web.Agendamento",
+                    "port" :"8806",
+                    "bindings": "http://agendamento.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.ROL",
+                    "port" :"8807",
+                    "bindings": "http://rol.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Mobile",
+                    "port" :"8809",
+                    "bindings": "http://mobile.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Ws.CentralLaudos",
+                    "port" :"8810",
+                    "bindings": "http://wscentral.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Api.Ui",
+                    "port" :"8811",
+                    "bindings": "http://apiapoiado.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.PortalApoiado",
+                    "port" :"8812",
+                    "bindings": "http://apoiado.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Api.Documento",
+                    "port" :"8813",
+                    "bindings": "http://apidoc.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Api.Laudo",
+                    "port" :"8814",
+                    "bindings": "http://apilaudo.jambo.pleres.net:80"
+
+                },
+                {
+                    "name": "Web.Api.Relatorio",
+                    "port" :"8815",
+                    "bindings": "http://apirelatorio.jambo.pleres.net:80"
+
+                }
+
+
+
+            ]
+        }
+    ]       
+},
+"tags": [
+    "pleres_app_env_jambo",
+    "pleres_app_server_front",
+    "customer_alliar",
+    "PRDALLIARPLERES01",
+    "prod"  ]
+
+}

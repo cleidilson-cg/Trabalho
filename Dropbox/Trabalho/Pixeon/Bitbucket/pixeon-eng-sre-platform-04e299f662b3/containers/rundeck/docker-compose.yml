@@ -1,0 +1,96 @@
+version: '2'
+volumes:
+  rundeck-var-lib: {}
+  rundeck-var-lib-logs: {}
+  rundeck-db-data: {}
+  rundeck-var: {}
+  rundeck-var-lib-storage: {}
+  rundeck-plugins: {}
+  rundeck-log: {}
+  rundeck-etc: {}
+services:
+  database:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: rundeckdb
+      MYSQL_PASSWORD: hPN*8MBD=wNfNaq4
+      MYSQL_ROOT_PASSWORD: hPN*8MBD=wNfNaq4
+      MYSQL_USER: rundeck
+    volumes:
+    - dbdata:/var/lib/mysql
+    ports:
+    - 3306:3306/tcp
+    expose:
+    - '3306'
+  rundeck-backup:
+    image: registry.pixeon.cloud/sre-tools:dockup
+    environment:
+      AWS_ACCESS_KEY_ID: AKIAILZ7TC7NYQGPNCXA
+      AWS_SECRET_ACCESS_KEY: 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
+      LAST_BACKUP: backup_filename_in_s3_folder
+      NOTIFY_BACKUP_FAILURE: 'true'
+      NOTIFY_BACKUP_SUCCESS: 'true'
+      NOTIFY_SLACK_WEBHOOK_URL: https://chat.pixeon.cloud/hooks/vHErSZ7M4RxJkxoLZ/bEnSBcx6hiKnyPNiRj2EyWDP4Y2KJdGTk64B8ez6WmLA4QLe
+      PATHS_TO_BACKUP: /etc/rundeck  /var/rundeck /var/lib/rundeck  /var/log/rundeck /opt/rundeck-plugins /var/lib/rundeck/logs  /var/lib/rundeck/var/storage
+      RESTORE: 'false'
+      S3_BUCKET_NAME: pixeon-cloud-backups
+      S3_FOLDER: containers/rundeck/
+    stdin_open: true
+    volumes:
+    - rundeck-etc:/etc/rundeck:ro
+    - rundeck-var:/var/rundeck:ro
+    - rundeck-var-lib:/var/lib/rundeck:ro
+    - rundeck-log:/var/log/rundeck:ro
+    - rundeck-plugins:/opt/rundeck-plugins:ro
+    - rundeck-var-lib-logs:/var/lib/rundeck/logs:ro
+    - rundeck-var-lib-storage:/var/lib/rundeck/var/storage:ro
+    labels:
+      io.rancher.container.start_once: 'true'
+      io.rancher.container.pull_image: always
+      cron.schedule: 0 0 3 * * ?
+      cron.action: start
+  rundeck:
+    image: jordan/rundeck:3.0.9
+    hostname: rundeck
+    environment:
+      DATABASE_ADMIN_PASSWORD: hPN*8MBD=wNfNaq4
+      DATABASE_ADMIN_USER: root
+      DATABASE_URL: jdbc:mysql://database:3306/rundeckdb?autoReconnect=true
+      EXTERNAL_SERVER_URL: http://rundeck.pixeon.cloud
+      NO_LOCAL_MYSQL: 'true'
+      RUNDECK_PASSWORD: hPN*8MBD=wNfNaq4
+      RUNDECK_STORAGE_PROVIDER: db
+      SMTP_DEFAULT_FROM: noreply@pixeon.cloud
+      SMTP_HOST: email-smtp.us-east-1.amazonaws.coma
+      SMTP_PASSWORD: AjBdqATq0WY7y00FhRtvN0/CrWSOsBOIjnCbnabZHpIR
+      SMTP_PORT: '587'
+      SMTP_USERNAME: AKIAJXWE3KLJONK553AA
+    volumes:
+    - rundeck-etc:/etc/rundeck
+    - rundeck-var:/var/rundeck
+    - rundeck-var-lib:/var/lib/rundeck
+    - rundeck-log:/var/log/rundeck
+    - rundeck-plugins:/opt/rundeck-plugins
+    - rundeck-var-lib-logs:/var/lib/rundeck/logs
+    - rundeck-var-lib-storage:/var/lib/rundeck/var/storage
+    links:
+    - database:database
+    labels:
+      traefik.frontend.rule: Host:rundeck.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: rundeck
+      traefik.port: '4440'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+    health_check:
+      port: 4440
+      interval: 2000
+      initializing_timeout: 60000
+      unhealthy_threshold: 3
+      strategy: none
+      healthy_threshold: 2
+      response_timeout: 2000
+  

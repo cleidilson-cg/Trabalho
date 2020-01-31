@@ -1,0 +1,44 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Download Git Repository') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: ${repository_name} / Branch: ${branch_source}"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${branch_source}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'scm_pixeon', url: "git@bitbucket.org:${account_name}/${repository_name}.git"]]])
+                        script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }       
+        stage('Sonar Comment PR') {
+            steps {
+                dir(workdir) {
+                    echo 'Start Sonar analysis and code comment'
+                    sh returnStatus: true, script: '''
+                        mvn clean verify -DskipTests sonar:sonar -batch-mode -errors \
+                        -Dsonar.bitbucket.repoSlug="${repository_name}" \
+                        -Dsonar.bitbucket.accountName="${account_name}" \
+                        -Dsonar.bitbucket.branchName="${branch_source}" \
+                        -Dsonar.host.url='https://sonar.pixeon.cloud' \
+                        -Dsonar.login='f6ca56bf19975c52c6fdf6f63b246fbbc4dfc7ae' \
+                        -Dsonar.analysis.mode=issues \
+                        -Dsonar.bitbucket.oauthClientKey='7xQxN5vaAwGUnLncp6' \
+                        -Dsonar.bitbucket.oauthClientSecret='mS5EqcpSJAHjdbJCvGqWWHzkNEFmQv43'
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        always {
+            dir(workdir) {
+                deleteDir()
+            }
+        }
+    }
+}

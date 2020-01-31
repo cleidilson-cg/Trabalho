@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stg-pixeon-hub
+  namespace: stg-pixeon-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stg-pixeon-hub
+  template:
+    metadata:
+      labels:
+        app: stg-pixeon-hub
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: stg-pixeon-hub
+        image: "registry.pixeon.cloud/hub-server:0.1.0"
+        ports:
+        - containerPort: 8080
+          name: grpc
+        - containerPort: 9090
+          name: rest
+        env:
+        - name: GRPC_ADDRESS
+          value: '8080'
+        - name: REST_ADDRESS
+          value: '9090'
+        - name: BROKER_HOST_URL
+          value: "amqp://admin:STG1kas922QQsAb@rabbitmq-hub.stg.pixeon.cloud:5672/"
+        - name: MONGO_DB_HOST
+          valueFrom:
+           secretKeyRef:
+             name: stg-pixeon-hub
+             key: MONGODB_STRING_CONNECTION
+        - name: MONGO_DB_DATABASE
+          value: pixeon
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stg-rest-hub
+  namespace: stg-pixeon-hub
+spec:
+  ports:
+  - port: 9090
+  selector:
+    app: stg-pixeon-hub
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stg-grpc-hub
+  namespace: stg-pixeon-hub
+spec:
+  ports:
+  - port: 8080
+  selector:
+    app: stg-pixeon-hub

@@ -1,0 +1,10 @@
+FROM microsoft/iis:10.0.14393.206
+MAINTAINER yros.aguiar@pixeon.cloud
+
+SHELL ["powershell"]
+
+RUN Install-WindowsFeature NET-Framework-45-ASPNET ; \
+    Install-WindowsFeature Web-Asp-Net45 ; \
+    Install-WindowsFeature NET-WCF-HTTP-Activation45
+RUN Remove-WebSite -Name 'Default Web Site'
+RUN mkdir -p c:\\app

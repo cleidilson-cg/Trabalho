@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-origem
+  namespace: korus-apis-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-origem
+  template:
+    metadata:
+      labels:
+        app: api-origem
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-origem
+        image: "registry.pixeon.cloud/korus/api-origem:dev-1.0.0.6"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-origem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-origem
+  namespace: korus-apis-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-origem

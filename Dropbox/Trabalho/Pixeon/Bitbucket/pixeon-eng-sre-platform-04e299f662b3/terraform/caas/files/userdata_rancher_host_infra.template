@@ -1,0 +1,19 @@
+#cloud-config
+write_files:
+  - path: /opt/rancher/bin/start.sh
+    permissions: "0770"
+    content: |
+      #!/bin/sh
+      add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      apt-get update -y
+      apt-get install docker.io -y
+      while ! docker version >/dev/null 2>&1; do echo 'waiting for docker...'; sleep 2; done
+      while ! ping -c 1 8.8.8.8 >/dev/null 2>&1; do echo 'waiting for net...'; sleep 2; done
+      sleep 5
+      export INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+      docker run -e CATTLE_HOST_LABELS="Name=devops-containers-production$INSTANCE_ID&HOSTID=$INSTANCE_ID&Services=devops" -d --privileged -v /var/run/docker.sock:/var/run/docker.sock -v /var/lib/rancher:/var/lib/rancher rancher/agent:stable "${rancher_url}"/v1/scripts/"${reg_token}"
+
+runcmd:
+  - sudo chmod +x /opt/rancher/bin/start.sh
+  - sudo sh /opt/rancher/bin/start.sh &
+

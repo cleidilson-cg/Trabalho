@@ -1,0 +1,121 @@
+pipeline {
+    agent { label 'master' }
+
+    stages {
+        stage('Checkout Chef-Repo') {
+                steps {
+                    script {
+                        version = "${env.BUILD_NUMBER}"
+                        workdir = "$version"
+                    }
+                    // slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                    dir(workdir) {
+                        checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bitbucket', url: 'git@bitbucket.org:pixeon/chef-repo.git']]])
+                        script {
+                            workdir = pwd()
+                            sh 'mkdir .chef'
+                            sh 'cp -rf ci/jenkins/linux/* .chef/'
+                        }
+                    }
+                }
+        }
+
+      stage('Code Quality') {
+            parallel {
+                stage('Unit Test') {
+                    steps {
+                        dir(workdir) {
+                            echo "Running Unit Test"
+                            //chef_cookbook_unit()
+                        }
+                    }
+                }
+                stage('Coverage') {
+                    steps {
+                        dir(workdir) {
+                          echo "Running Coverage"
+                          //chef_cookbook_foodcritic()
+                        }
+                    }
+                }
+            }
+        }        
+
+        stage('Upload Cookbook') {
+            steps {
+                node('master') {
+                    dir(workdir) {
+                            echo 'Start Cookbook Upload Step'
+                            sh 'knife cookbook upload zabbix-agent'
+                            dir("zabbix-scripts") {
+                                checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bitbucket', url: 'git@bitbucket.org:pixeon/zabbix-scripts.git']]])
+                                sh "for i in *; do cd \$i && zip -r \$i-${version}.zip * -x ci && mv \$i-${version}.zip ../ && cd ..  && cp -rf \$i-${version}.zip \$i-latest.zip && rm -rf \$i-${version}; done"
+                                withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                    script {
+                                        def identity=awsIdentity();//Log AWS credentials
+                                        // Upload files from working directory in your project workspace to S3
+                                        s3Upload(bucket:"pixeon-zbx-scripts", workingDir:'.', includePathPattern:'*.zip');
+                                    }
+                                }
+                            }
+                    }
+                }
+                
+            }
+        }
+ 
+        
+        stage('Deploy Homolog') {
+            steps {
+                    script {
+                        json = "{\"zabbix\":{\"agent\":{\"scripts_version\":\"$version\"}}}"
+                    }
+                    dir(workdir) {
+                        echo 'Start Deploy Homolog'
+                        // sh "knife winrm 'chef_environment:*_homolog AND platform:windows AND role:korus_web_monitoring' -a ipaddress 'chef-client -o role[korus_web_monitoring]' -x rundeck -P 'pass'"
+                        // sh "knife winrm 'chef_environment:*_homolog AND platform:windows AND role:korus_db_monitoring' -a ipaddress 'chef-client -o role[korus_db_monitoring]' -x rundeck -P 'pass'"                        
+                    }
+            }
+        }
+        stage('Deploy Approval Production'){
+            steps {
+                script {  
+                    env.DEPLOYPROD = input message: 'Deploy Branch to Production',
+                    ok: 'Deploy!',
+                    parameters: [booleanParam(defaultValue: false, description: 'If you like deploy to prod',name: 'Yes?')]
+                }
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The Job ${env.JOB_NAME} ${env.BUILD_NUMBER} need a approval, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+            }
+                    
+        }
+        stage('Deploy Production') {
+            steps {
+                    dir(workdir) {
+                        echo 'Start Deploy Production'
+                        //knife winrm "chef_environment:*_prod AND platform:windows" -a ipaddress "chef-client -o recipe[zabbix-agent]" -x rundeck -P "pass"'
+                    }
+            }
+        }
+    }
+    post {
+        always {
+            dir(workdir) {
+                deleteDir()
+            }
+        }
+        aborted {
+            echo 'Aborted'
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+        failure {
+            echo 'Failure'
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+        
+        success {
+            echo 'Sucess'
+            // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+
+    }
+}

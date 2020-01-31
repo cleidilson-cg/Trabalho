@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-exame
+  namespace: korus-apis-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-exame
+  template:
+    metadata:
+      labels:
+        app: api-exame
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-exame
+        image: "registry.pixeon.cloud/korus/api-exame:dev-1.0.0.5"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-exame
+        env:
+        - name: ConnectionsStrings__dev
+          value: Data Source=pixeon-teste-db.pleres.net;Initial Catalog=Pleres-Korus_Central;User
+            ID=desenvolvimento;Password=3Lg3pp9YJ%yuR#w9;Persist Security Info=True;
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-exame
+  namespace: korus-apis-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-exame

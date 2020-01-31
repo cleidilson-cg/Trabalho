@@ -1,0 +1,32 @@
+
+version: '2'
+volumes:
+  sonardb-data: {}
+services:
+  postgresql:
+    image: orchardup/postgresql:latest
+    environment:
+      - POSTGRESQL_USER=sonar
+      - POSTGRESQL_PASS=xaexohquaetiesoo
+      - POSTGRESQL_DB=sonar
+    volumes:
+      - sonardb-data:/var/lib/postgresql
+  sonarqube:
+    image: harbur/sonarqube:latest
+    #build: ./
+    #dockerfile: Dockerfile
+    links:
+      - postgresql:db
+    environment:
+      - DB_USER=sonar
+      - DB_PASS=xaexohquaetiesoo
+      - DB_NAME=sonar
+    labels:
+      traefik.frontend.rule: Host:sonar.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: sonar
+      traefik.port: '9000'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'

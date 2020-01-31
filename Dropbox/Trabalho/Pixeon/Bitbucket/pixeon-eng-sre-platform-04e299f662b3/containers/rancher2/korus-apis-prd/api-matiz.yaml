@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-matriz
+  namespace: korus-apis-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-matriz
+  template:
+    metadata:
+      labels:
+        app: api-matriz
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-matriz
+        image: "registry.pixeon.cloud/korus/api-exame-matriz:dev-1.0.0.10"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-matriz
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-matriz
+  namespace: korus-apis-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-matriz

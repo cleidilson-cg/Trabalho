@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickvita-admin-fe
+  namespace: clickvita-admin-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickvita-admin-fe
+  template:
+    metadata:
+      labels:
+        app: clickvita-admin-fe
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: clickvita-admin-fe
+        image: "registry.pixeon.cloud/clickvita/clickvita-admin-fe:latest"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickvita-admin-fe
+  namespace: clickvita-admin-dev
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: clickvita-admin-fe

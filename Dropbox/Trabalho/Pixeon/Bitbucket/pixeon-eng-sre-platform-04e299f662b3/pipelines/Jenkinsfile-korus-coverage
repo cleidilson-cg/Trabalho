@@ -1,0 +1,81 @@
+    pipeline {
+        agent { label 'master' }
+
+        parameters {
+            string(name: 'GIT_BRANCH',
+            description: 'Branch to be used')
+        }
+
+        stages {
+            stage('Checkout') {
+                    steps {
+                        script {
+                            version = "${env.BUILD_NUMBER}"
+                            workdir = "$version"
+                        }
+                        ansiColor('css') {
+                            //slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                            rocketSend channel: 'devs_pleres', message: "Jenkins Started the job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                            dir(workdir) {
+                                checkout([$class: 'GitSCM', branches: [[name: "${params.GIT_BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/pleres-net.git']]])
+                                script {
+                                    currentBuild.displayName = "pleres-net:${params.GIT_BRANCH} (#${currentBuild.number})"
+                                    workdir = pwd()
+                                }
+                            }
+                        }
+                    }
+            }
+
+            stage('Code Quality') {
+                steps {
+                    node('master') {
+                        dir(workdir) {
+                            ansiColor('css') {
+                                echo 'Start Build Step'
+                                bat '''
+                                regsvr32 /s .\\src\\Win.LancamentoLaudo\\BRySignerCAdESCOM.dll
+                                nuget sources remove -name MyGetDigitalmedFeed
+                                nuget.exe sources add -Name MyGetDigitalmedFeed -Source https://www.myget.org/F/digitalmed/api/v3/index.json -UserName pixeon_sre -Password myget@pixeon@123
+                                regsvr32 /s .\\src\\Win.LancamentoLaudo\\BRySignerCAdESCOM.dll
+                                nuget.exe restore .\\src\\Digitalmed.sln''' 
+                                
+                                powershell """
+                                Get-ChildItem .\\src\\ -Include default.pubxml -recurse | ForEach { (Get-Content \$_ | ForEach {\$_.replace("<publishUrl>D:\\Publish\\Pleres\\", "<publishUrl>D:\\Publish\\Pleres\\${version}\\")}) | Set-Content \$_ }
+                                """
+                                bat '''
+                                C:\\sonar-scanner-msbuild\\SonarScanner.MSBuild.exe begin /k:"92996c95d3f2d51d63bf8c1e1e88d384"
+                                "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\BuildTools\\MSBuild\\15.0\\Bin\\msbuild.exe" /p:configuration=Release /p:WebPublishMethod=FileSystem /m /p:BuildProjectReferences=true  /p:DeployOnBuild=true /T:Build /P:PublishProfile=default .\\src\\Digitalmed.sln
+                                C:\\sonar-scanner-msbuild\\SonarScanner.MSBuild.exe end
+                                '''
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+            post {
+                always {
+                    dir(workdir) {
+                    echo 'Delete workdir'
+                    deleteDir()
+                    }
+                }
+                aborted {
+                    echo 'aborted'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} pleres-net:${params.GIT_BRANCH} -  build:${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }
+                failure {
+                    echo 'failure'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }        
+                success {
+                    echo 'success'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED IN PRODUCTION- JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - ${env.BUILD_NUMBER} - build:${env.BUILD_NUMBER} SUCCESSFUL TESTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }
+            }
+    }

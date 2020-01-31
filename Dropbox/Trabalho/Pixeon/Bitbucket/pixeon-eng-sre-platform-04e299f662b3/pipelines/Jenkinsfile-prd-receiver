@@ -1,0 +1,63 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Bitbucket - Checkout App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: ${REPOSITORY} / Branch: ${BRANCH}"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'scm_pixeon', url: "git@bitbucket.org:pixeon/${REPOSITORY}.git"]]])
+                    script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }
+        stage('Activator - Compile App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Activator - Compile App'
+                    sh returnStatus: true, script: '''
+			export JAVA_HOME=/usr/lib/jvm/java-8-oracle/
+			chmod 777 activator
+			./activator dependencies
+			./activator compile
+			./activator clean dist
+                    '''
+                }
+            }
+        }
+        stage('Ansible - Checkout playbook') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: eng-sre-platform / Branch: master"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/master"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'scm_pixeon', url: "git@bitbucket.org:pixeon/eng-sre-platform.git"]]])
+                    script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }
+        stage('Ansible - Deploy App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Ansible - Execute Playbook'
+                    sh returnStatus: true, script: '''
+                       docker run --rm -it -v $(pwd):/ansible/playbooks -v /home/gorziza/.ssh/clickvita-azure-devops.pem:/root/.ssh/id_rsa registry.pixeon.cloud/ansible-playbook -i ${ANSIBLE-INVENTORY} ${ANSIBLE-PLAYBOOK} --tags {ANSIBLE-TAGS}
+                    '''
+                }
+            }
+        }
+    }
+}

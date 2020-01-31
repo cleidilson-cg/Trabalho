@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-dev-api
+  namespace: l2l-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-dev-api
+  template:
+    metadata:
+      labels:
+        app: l2l-dev-api
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-dev-api
+        image: "registry.pixeon.cloud/lab2labapi-homologacao"
+        ports:
+        - containerPort: 80
+          name: l2l-dev-api
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://l2l-dev-api"
+        - name: "LabelRequestConfig__api.add"
+          value: "http://l2l-dev-solicitacaoetiqueta/material/validatelabeladd"
+        - name: "LabelRequestConfig__api.request"
+          value: "http://l2l-dev-solicitacaoetiqueta/material/validatelabelrequest"
+        - name: "RabbitMq__hostname"
+          value: "l2l-dev-rabbitmq"
+        - name: "RabbitMq__port"
+          value: "5672"
+        - name: "LabelRequestConfig__api.baseurl"
+          value: "http://l2l-dev-solicitacaoetiqueta"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-dev-api
+  namespace: l2l-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: l2l-dev-api

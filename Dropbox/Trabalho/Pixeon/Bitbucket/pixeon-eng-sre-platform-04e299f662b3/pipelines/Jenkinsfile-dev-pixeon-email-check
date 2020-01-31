@@ -1,0 +1,66 @@
+pipeline {
+    agent { label 'master' }
+    parameters {
+        string( name: 'GIT_REPOSITORY', defaultValue: 'pixeon-email-check', description: '' )
+        string( name: 'GIT_BRANCH', defaultValue: 'develop', description: '' )
+        string( name: 'RANCHER_NAMESPACE', defaultValue: 'mailcheck-dev', description: '' )
+        string( name: 'RANCHER_WORKLOAD', defaultValue: 'mailcheck-dev-api', description: '' )
+        string( name: 'RANCHER_CONTAINER_NAME', defaultValue: 'mailcheck-dev-api', description: '' )
+    }
+    stages {
+        stage('Bitbucket - Checkout App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: ${GIT_REPOSITORY} / Branch: ${GIT_BRANCH}"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${GIT_BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'bitbucket', url: "git@bitbucket.org:pixeon/${GIT_REPOSITORY}.git"]]])
+                    script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }
+        stage('Docker/Nexus - Build Image') {
+            environment {
+                NEXUS_CREDENTIALS = credentials('nexus-jenkins')
+                NUGET_API_KEY = credentials('NEXUS_NUGET_API_KEY')
+                NEXUS_NUGET = credentials('NEXUS_NUGET')
+            }
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Docker - Build Image'
+                    sh returnStdout: true, script: '''
+                        cd src/
+                        docker build -t registry.pixeon.cloud/"${GIT_REPOSITORY}":latest -t registry.pixeon.cloud/"${GIT_REPOSITORY}":"${BUILD_NUMBER}" . --build-arg "VERSION=0.0.${BUILD_NUMBER}" --build-arg "NUGET_API_KEY=${NUGET_API_KEY}" --build-arg "NUGET_USERNAME=${NEXUS_NUGET_USR}" --build-arg "NUGET_PASSWORD=${NEXUS_NUGET_PSW}"
+                        docker login -p ${NEXUS_CREDENTIALS_PSW} -u ${NEXUS_CREDENTIALS_USR} http://registry.pixeon.cloud
+                        docker push registry.pixeon.cloud/"${GIT_REPOSITORY}"
+                    '''
+                }
+            }
+        }
+        stage('Deploy - Kubernetes by API Rancher') {
+            environment {
+                RANCHER_CREDENTIALS = credentials('rancher2-api-dev')
+            }
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Deploy - Kubernetes by API Rancher'
+                    sh returnStdout: true, script: '''
+                    token="${RANCHER_CREDENTIALS_USR}:${RANCHER_CREDENTIALS_PSW}"
+                    newTimeStamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                    pod_upgrade_body=$(curl -s "https://caasaz.pixeon.cloud/v3/project/c-j8q9t:p-86nqj/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" -X GET -H "Authorization: Bearer ${token}" -H \'Connection: keep-alive\' -H \'Pragma: no-cache\' -H \'Cache-Control: no-cache\' -H \'content-type: application/json\' -H \'accept: application/json\' 2>&1 | /var/jenkins_home/jq "del(.actions) | .annotations.\\"cattle.io/timestamp\\"=\\"${newTimeStamp}\\" | .containers[0].image=\\"registry.pixeon.cloud/${GIT_REPOSITORY}:${BUILD_NUMBER}\\" | .containers[0].name=\\"${RANCHER_CONTAINER_NAME}\\"")
+                    curl "https://caasaz.pixeon.cloud/v3/project/c-j8q9t:p-86nqj/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" -X PUT -H "Authorization: Bearer ${token}" -H \'Connection: keep-alive\' -H \'Pragma: no-cache\' -H \'Cache-Control: no-cache\' -H \'content-type: application/json\' -H \'accept: application/json\' --data-binary "$pod_upgrade_body" --compressed
+                '''
+                }
+            }
+        }
+    }
+}

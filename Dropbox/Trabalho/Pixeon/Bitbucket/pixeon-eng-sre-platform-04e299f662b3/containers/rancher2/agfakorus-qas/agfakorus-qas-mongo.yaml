@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agfakorus-qas-mongo
+  namespace: agfakorus-qas
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-qas-mongo
+  namespace: agfakorus-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-qas-mongo
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: agfakorus-qas-mongo
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-qas-mongo
+        image: mongo:4.0.10
+        ports:
+        - containerPort: 27017
+          name: agfa-qas-mongo
+        volumeMounts:
+        - mountPath: "/data/db"
+          name: agfakorus-qas-mongo
+      volumes:
+        - name: agfakorus-qas-mongo
+          persistentVolumeClaim:
+            claimName: agfakorus-qas-mongo
+      hostname: agfakorus-qas-mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-qas-mongo
+  namespace: agfakorus-qas
+spec:
+  ports:
+  - port: 27017
+  selector:
+    app: agfakorus-qas-mongo

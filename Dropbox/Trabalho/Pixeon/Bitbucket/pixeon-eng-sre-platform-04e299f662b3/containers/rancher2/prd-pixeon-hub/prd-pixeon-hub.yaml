@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prd-pixeon-hub
+  namespace: prd-pixeon-hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prd-pixeon-hub
+  template:
+    metadata:
+      labels:
+        app: prd-pixeon-hub
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: prd-pixeon-hub
+        image: "registry.pixeon.cloud/hub-server:0.1.0"
+        ports:
+        - containerPort: 8080
+          name: grpc
+        - containerPort: 9090
+          name: rest
+        env:
+        - name: GRPC_ADDRESS
+          value: '8080'
+        - name: REST_ADDRESS
+          value: '9090'
+        - name: MONGO_DB_HOST
+          valueFrom:
+           secretKeyRef:
+             name: prd-pixeon-hub
+             key: MONGODB_STRING_CONNECTION
+        - name: MONGO_DB_DATABASE
+          value: pixeon
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prd-rest-hub
+  namespace: prd-pixeon-hub
+spec:
+  ports:
+  - port: 9090
+  selector:
+    app: prd-pixeon-hub
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prd-grpc-hub
+  namespace: prd-pixeon-hub
+spec:
+  ports:
+  - port: 8080
+  selector:
+    app: prd-pixeon-hub

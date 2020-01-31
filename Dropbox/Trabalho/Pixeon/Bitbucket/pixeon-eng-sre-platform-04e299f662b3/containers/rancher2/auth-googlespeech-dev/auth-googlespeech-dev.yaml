@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-googlespeech-dev
+  namespace: auth-googlespeech-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-googlespeech-dev
+  template:
+    metadata:
+      labels:
+        app: auth-googlespeech-dev
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: auth-googlespeech-dev
+        image: "registry.pixeon.cloud/authgooglespeech:latest"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-googlespeech-dev
+  namespace: auth-googlespeech-dev
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: auth-googlespeech-dev

@@ -1,0 +1,337 @@
+    pipeline {
+        agent { label 'master' }
+
+        parameters {
+            string(name: 'GIT_BRANCH',
+            description: 'Branch to be used')
+        }
+
+        stages {
+            stage('Checkout') {
+                    steps {
+                        script {
+                            version = "${env.BUILD_NUMBER}"
+                            workdir = "$version"
+                        }
+                        ansiColor('css') {
+                            //slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                            rocketSend channel: 'devs_pleres', message: "Jenkins Started the job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                             
+                            dir("net-lib") {
+                                checkout([$class: 'GitSCM', branches: [[name: "master"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/net-lib.git']]])
+                            }
+                            dir(workdir) {
+                                checkout([$class: 'GitSCM', branches: [[name: "${params.GIT_BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/pleres-net.git']]])
+                                script {
+                                    currentBuild.displayName = "pleres-net:${params.GIT_BRANCH} (#${currentBuild.number})"
+                                    workdir = pwd()
+                                }
+                            }
+                        }
+                    }
+            }
+
+        stage('Code Quality') {
+                parallel {
+                    stage('Unit Test') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo "Running Unit Test"
+                                    /*
+                                    “C:\Tools\opencover\OpenCover.Console.exe” -register:user -target:”C:\Program Files (x86)\NUnit.org\nunit-console\nunit3-console.exe” -targetargs:”C:\JenkinsProjects\{YOUR PROJECT PATH}\bin\Debug\KariyerNet.Business.ECommerce.UnitTests.dll –result=TestResult.xml;format=nunit2″ -filter:+
+                                    https://www.swtestacademy.com/jenkins-dotnet-integration/
+                                     */
+                                }
+                            }
+                        }
+                    }
+                    stage('Coverage') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo "Running Coverage"
+                                    /*
+                                    “C:\Tools\opencover\OpenCover.Console.exe” -register:user -target:”C:\Program Files (x86)\NUnit.org\nunit-console\nunit3-console.exe” -targetargs:”C:\JenkinsProjects\{YOUR PROJECT PATH}\bin\Debug\KariyerNet.Business.ECommerce.UnitTests.dll –result=TestResult.xml;format=nunit2″ -filter:+
+                                    https://www.swtestacademy.com/jenkins-dotnet-integration/
+                                   */
+                                }
+                            }
+                        }
+                    }
+                    stage('Test Chef Cookbook') {
+                        steps {
+
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo "Running FoodCritic on korus_app cookbook"
+                                    powershell """
+                                        knife cookbook download korus_app
+                                        cd korus_app*
+                                        foodcritic -B .
+                                        exit 0
+                                    """
+                                }                 
+                            }
+                        }
+                    }
+                }
+            }        
+
+            stage('Build') {
+                steps {
+                    node('master') {
+                        dir(workdir) {
+                            ansiColor('css') {
+                                echo 'Start Build Step'
+                                bat '''
+                                nuget sources remove -name MyGetDigitalmedFeed
+                                nuget sources remove -name DevExpress
+                                nuget sources remove -name Nuget.org
+                                nuget.exe sources add -Name pixeon-nuget -Source https://nexus.pixeon.cloud/repository/pixeon-nuget/ -UserName yros.aguiar -Password Pixnet@2078
+                                regsvr32 /s .\\src\\Win.LancamentoLaudo\\BRySignerCAdESCOM.dll
+                                nuget.exe restore .\\src\\Digitalmed.sln''' 
+                                
+                                //nuget sources remove -name MyGetDigitalmedFeed
+                                //nuget.exe sources add -Name MyGetDigitalmedFeed -Source https://www.myget.org/F/digitalmed/api/v3/index.json -UserName pixeon_sre -Password myget@pixeon@123
+                                //nuget sources remove -name DevExpress
+                                //nuget.exe sources add -Name DevExpress -Source https://nuget.devexpress.com/JDbiPU7EwYer2g6cOsUSMkHwnHWh4zPT5lfVdypk9LlNrQpu9e/api
+                                //nuget sources remove -name Nuget.org
+                                //nuget.exe sources add -Name Nuget.org -Source https://api.nuget.org/v3/index.json
+                                
+
+                                powershell """
+                                Get-ChildItem .\\src\\ -Include default.pubxml -recurse | ForEach { (Get-Content \$_ | ForEach {\$_.replace("<publishUrl>D:\\Publish\\Pleres\\", "<publishUrl>D:\\Publish\\Pleres\\${version}\\")}) | Set-Content \$_ }
+                                """
+                                bat '''
+                                "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\BuildTools\\MSBuild\\15.0\\Bin\\msbuild.exe" /p:configuration=Release /p:WebPublishMethod=FileSystem /m /p:BuildProjectReferences=true  /p:DeployOnBuild=true /T:Build /P:PublishProfile=default .\\src\\Digitalmed.sln
+                                '''
+                                echo "Create Packages"
+                                powershell """
+                                mkdir -p D:\\Publish\\Packages\\${version}
+                                echo "Remove web.config"
+                                Get-ChildItem 'D:\\Publish\\pleres\\${version}\\' | ForEach-Object { Remove-Item -Path "D:\\Publish\\pleres\\${version}\\\$_\\web.config" }
+                                echo "Remove Portal Apoiado .config .publish App_Data"
+                                Remove-Item -Path ".\\src\\Web.PortalApoiado\\*.config"
+                                Remove-Item -Path ".\\src\\Web.PortalApoiado\\*.publishproj"
+                                Remove-Item -Recurse -Force -Path ".\\src\\Web.PortalApoiado\\App_Data\\"
+                                echo "Copy Portal Apoiado"
+                                Copy-Item  -Recurse -Force ".\\src\\Web.PortalApoiado" -Destination "D:\\Publish\\pleres\\${version}\\Web.PortalApoiado"
+                                echo "Copy Web Api Documento, Relatorio, Laudo"
+                                Copy-Item  -Recurse -Force "D:\\Publish\\pleres\\${version}\\Web.Api" -Destination "D:\\Publish\\pleres\\${version}\\Web.Api.Documento"
+                                Copy-Item  -Recurse -Force "D:\\Publish\\pleres\\${version}\\Web.Api" -Destination "D:\\Publish\\pleres\\${version}\\Web.Api.Laudo"
+                                Copy-Item  -Recurse -Force "D:\\Publish\\pleres\\${version}\\Web.Api" -Destination "D:\\Publish\\pleres\\${version}\\Web.Api.Relatorio"
+                                echo "Packaging Web Applications"
+                                Get-ChildItem 'D:\\Publish\\pleres\\${version}\\'| ForEach-Object {Compress-Archive -Path "D:\\Publish\\pleres\\${version}\\\$_" -DestinationPath D:\\Publish\\Packages\\${version}\\\$_.zip }
+                                echo "Packaging Windows Services Applications"
+                                Get-ChildItem 'D:\\Publish\\pleres\\${version}\\' | Where-Object { \$_ -like "Win.*" } | ForEach-Object { Remove-Item -Path "D:\\Publish\\pleres\\${version}\\\$_\\.config" }
+                                echo "Remove .config"
+                                Get-ChildItem ".\\src\\" |  Where-Object { \$_ -like "Win.*" } | ForEach-Object {Compress-Archive -Path ".\\src\\\$_\\bin\\Release" -DestinationPath D:\\Publish\\Packages\\${version}\\\$_.zip }
+                                echo "Copy procedures"
+                                Get-ChildItem -Path ".\\src\\Repositorio\\Procedures\\" -Recurse| Copy-Item -Destination ".\\src\\Cmd.Suporte\\bin\\Release\\Procedures\\" -Force
+                                echo "Copy Cmd.Suporte"
+                                mkdir -p D:\\Publish\\Packages\\${version}\\Cmd.Suporte
+                                Compress-Archive -Path ".\\src\\Cmd.Suporte\\bin\\Release\\" -DestinationPath D:\\Publish\\Packages\\${version}\\Cmd.Suporte.zip
+                                echo "Remove .config"
+                                Get-ChildItem 'D:\\Publish\\pleres\\${version}\\' | Where-Object { \$_ -like "SrvWin.*" } | ForEach-Object { Remove-Item -Path "D:\\Publish\\pleres\\${version}\\\$_\\.config" }                          
+                                Get-ChildItem ".\\src\\" |  Where-Object { \$_ -like "SrvWin.*" } | ForEach-Object {Compress-Archive -Path ".\\src\\\$_\\bin\\Release" -DestinationPath D:\\Publish\\Packages\\${version}\\\$_.zip }
+                                """
+                                echo 'Building Artifacts'
+                                
+                                withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                    script {
+                                        def identity=awsIdentity();//Log AWS credentials
+                                        // Upload files from working directory in your project workspace to S3
+                                        s3Upload(bucket:"pixeon-artifacts/PleresNet/${params.GIT_BRANCH}/${version}", workingDir:"D:\\Publish\\Packages\\${version}", includePathPattern:'*.zip');
+                                        }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            stage('Approve Deploy Homolog'){
+                steps {
+                    script {  
+                        env.DEPLOYPROD = input message: 'Deploy Branch to Homolog',
+                        ok: 'Deploy!',
+                        parameters: [booleanParam(defaultValue: false, description: 'If you like deploy to homolog',name: 'Yes?')]
+                    }
+                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER} need a approval, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The Job ${env.JOB_NAME} ${env.BUILD_NUMBER} need a approval, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                }
+                        
+            }
+            stage('Deploy to Homolog') {
+                parallel {
+                    stage('FRONT A') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                   echo 'Start Deploy Homolog Server Front A'
+                                    powershell '''
+                                    knife winrm "tags:*mostarda AND tags:pleres_app_server_front-a" -a ipaddress "chef-client -o recipe[korus_app::deploy]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN STAGE FRONT-A SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                    stage('FRONT B') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo 'Start Deploy Homolog Server Front B'
+                                    powershell '''
+                                    knife winrm "tags:*mostarda AND tags:pleres_app_server_front-b" -a ipaddress "chef-client -o recipe[korus_app::deploy]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN STAGE FRONT-B SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                    stage('WINDOWS SERVICES') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo 'Start Deploy Homolog Server WinServices'
+                                    powershell '''
+                                    knife winrm "tags:*mostarda AND tags:pleres_app_server_winservices" -a ipaddress "chef-client -o recipe[korus_app::deploy]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN STAGE WINSERVICES SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                
+                
+                }
+
+            }
+
+            stage('Regressive Test') {
+                steps {
+                        dir(workdir) {
+                            dir("regressive-test") {
+                                    ansiColor('css') {
+                                        checkout([$class: 'GitSCM', branches: [[name: "alliar_auto_test"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/alliar-automated-tests.git']]])
+                                        echo 'Start Regressive Test'
+                                        catchError {
+                                            bat '''
+                                            mvn clean verify -Dcucumber.options="--tags @regressivo"
+                                            '''
+                                        }
+                                        rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  RECURSIVE TEST  FINALIZED IN STAGE, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                    }
+                            }
+                        }
+                }
+            }
+
+            stage('Approve Deploy Production'){
+                steps {
+                    script {  
+                        env.DEPLOYPROD = input message: 'Deploy Branch to Production',
+                        ok: 'Deploy!',
+                        parameters: [booleanParam(defaultValue: false, description: 'If you like deploy to prod',name: 'Yes?')]
+                    }
+                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER} need a approval, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The Job ${env.JOB_NAME} ${env.BUILD_NUMBER} need a approval, JOB URL: (<${env.RUN_DISPLAY_URL} | Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                }
+                        
+            }
+
+            stage('Deploy to Production') {
+                parallel {
+                    stage('FRONT A') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                   echo 'Start Deploy Production Server Front A'
+                                    powershell '''
+                                    knife winrm "tags:*jambo AND tags:pleres_app_server_front-a" -a ipaddress "chef-client -o recipe[korus_app::deploy]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN PRODUCTION FRONT-A SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                    stage('FRONT B') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo 'Start Deploy Production Server Front B'
+                                    powershell '''
+                                    knife winrm "tags:*jambo AND tags:pleres_app_server_front-b" -a ipaddress "chef-client -o recipe[korus_app::deploy]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN PRODUCTION FRONT-B SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                    stage('WINDOWS SERVICES') {
+                        steps {
+                            dir(workdir) {
+                                ansiColor('css') {
+                                    echo 'Start Deploy Production Server WinServices'
+                                    powershell '''
+                                    knife winrm "tags:*jambo AND tags:pleres_app_server_winservices" -a ipaddress "chef-client -o recipe[korus_app::deploy],recipe[korus_app::configure_winservices]" -x "chef-user" -P "Maestro@Password*5842"
+                                    '''
+                                    rocketSend channel: 'devs_pleres', message: "The Job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - Build:${env.BUILD_NUMBER}  SUCCESSFUL DEPLOYED IN PRODUCTION WINSERVICES SERVER, JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                                }
+                            }
+                        }
+                    
+                    }
+                
+                
+                }
+
+            }
+
+
+            stage('Update Artifacts') {
+                steps {
+                        dir(workdir) {
+                            echo 'Update Latest Version for Production'
+                            
+                                withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                    script {
+                                        def identity=awsIdentity();//Log AWS credentials
+                                        // Upload files from working directory in your project workspace to S3
+                                        s3Upload(bucket:"pixeon-artifacts/PleresNet/${params.GIT_BRANCH}/latest", workingDir:"D:\\Publish\\Packages\\${version}\\", includePathPattern:'*.zip');
+                                        }
+                                }
+                        }
+                }
+            }
+        }
+            post {
+                always {
+                    dir(workdir) {
+                    echo 'Delete workdir'
+                    //deleteDir()
+                    }
+                }
+                aborted {
+                    echo 'aborted'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} pleres-net:${params.GIT_BRANCH} -  build:${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }
+                failure {
+                    echo 'failure'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - build:${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }        
+                success {
+                    echo 'success'
+                // slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED IN PRODUCTION- JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                 rocketSend channel: 'devs_pleres', message: "The job ${env.JOB_NAME} - pleres-net:${params.GIT_BRANCH} - ${env.BUILD_NUMBER} - build:${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)"
+                }
+            }
+    }

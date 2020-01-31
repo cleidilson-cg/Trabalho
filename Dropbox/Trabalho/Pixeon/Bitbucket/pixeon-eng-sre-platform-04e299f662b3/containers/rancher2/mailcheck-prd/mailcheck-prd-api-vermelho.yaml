@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailcheck-prd-api-vermelho
+  namespace: mailcheck-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailcheck-prd-api-vermelho
+  template:
+    metadata:
+      labels:
+        app: mailcheck-prd-api-vermelho
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: mailcheck-prd-api-vermelho
+        image: "registry.pixeon.cloud/pixeon-email-check:56"
+        ports:
+        - containerPort: 80
+          name: api-vermelho
+        env:
+        - name: ApplicationInsights__InstrumentationKey
+          value: 007bb723-ba13-4613-a602-31815dd954b7
+        - name: CHAIN
+          value: mailgun
+        - name: ConnectionStrings__AccountsDb
+          value: mailcheck-prd-redis:6379,password=59LzqyrHsKv8iEm,defaultDatabase=1,allowAdmin=true,resolveDns=true,serviceName=pixeon-mail-check
+        - name: ConnectionStrings__EmailsDb
+          value: mailcheck-prd-redis:6379,password=59LzqyrHsKv8iEm,defaultDatabase=0,allowAdmin=true,resolveDns=true,serviceName=pixeon-mail-check
+        - name: Jwt__SigningSecret
+          value: tnwEvfS8RjsfrkLAGPGEuB25DVXtflDe
+        - name: Logging__LogLevel__Default
+          value: Error
+        - name: Serilog__MinimumLevel__Default
+          value: Error
+        - name: VerifiersSettings__MailGunVerifier__acceptanceLevel__risk
+          value: low;medium
+        - name: VerifiersSettings__MailGunVerifier__acceptanceLevel__status
+          value: deliverable;unknown
+        - name: VerifiersSettings__MailGunVerifier__headers__Authorization
+          value: Basic YXBpOjI4YmQ0YjkzNWUzODRlMDg3MmFiNGZiMmM3ZjgzY2RiLTJiMGVlZjRjLTFhZmYwZWJj
+        - name: VerifiersSettings__MailGunVerifier__url
+          value: https://api.mailgun.net/v4/address/validate?address={Value}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailcheck-prd-api-vermelho
+  namespace: mailcheck-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: mailcheck-prd-api-vermelho

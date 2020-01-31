@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: korus-socket-prd-app
+  namespace: korus-socket-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: korus-socket-prd-app
+  template:
+    metadata:
+      labels:
+        app: korus-socket-prd-app
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: korus-socket-prd-app
+        image: "registry.pixeon.cloud/korus/api-socket:dev-1.0.0.5"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: socket-app
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: ''
+        - name: PORT
+          value: '3000'
+        - name: PasswordWebApiCloud
+          value: 'GqcNUwBBmmEdJrrzvTf/9A=='
+        - name: URLApiCloud
+          value: 'http://pixeon01.app.pleres.net:9087/api'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: korus-socket-prd-app
+  namespace: korus-socket-prd
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: korus-socket-prd-app

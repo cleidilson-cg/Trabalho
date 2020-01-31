@@ -1,0 +1,30 @@
+pipeline {
+    agent { label 'master' }
+    parameters {
+        string( name: 'RANCHER_NAMESPACE', defaultValue: 'mailcheck-prd', description: '' )
+        string( name: 'RANCHER_WORKLOAD', defaultValue: 'mailcheck-prd-api', description: '' )
+        string( name: 'RANCHER_CONTAINER_NAME', defaultValue: 'mailcheck-prd-api', description: '' )
+        string( name: 'RANCHER_DOCKER_IMAGE', defaultValue: 'registry.pixeon.cloud/pixeon-email-check:18', description: '' )
+    }
+    stages {
+        stage('Deploy - Kubernetes by API Rancher') {
+            environment {
+                RANCHER_CREDENTIALS = credentials('rancher2-api-prd')
+            }
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Deploy - Kubernetes by API Rancher'
+                    sh returnStdout: true, script: '''
+                    token="${RANCHER_CREDENTIALS_USR}:${RANCHER_CREDENTIALS_PSW}"
+                    newTimeStamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                    pod_upgrade_body=$(curl -s "https://caasaz.pixeon.cloud/v3/project/c-vcp58:p-t6n28/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" -X GET -H "Authorization: Bearer ${token}" -H \'Connection: keep-alive\' -H \'Pragma: no-cache\' -H \'Cache-Control: no-cache\' -H \'content-type: application/json\' -H \'accept: application/json\' 2>&1 | /var/jenkins_home/jq "del(.actions) | .annotations.\\"cattle.io/timestamp\\"=\\"${newTimeStamp}\\" | .containers[0].image=\\"${RANCHER_DOCKER_IMAGE}\\" | .containers[0].name=\\"${RANCHER_CONTAINER_NAME}\\"")
+                    curl "https://caasaz.pixeon.cloud/v3/project/c-vcp58:p-t6n28/workloads/deployment:${RANCHER_NAMESPACE}:${RANCHER_WORKLOAD}" -X PUT -H "Authorization: Bearer ${token}" -H \'Connection: keep-alive\' -H \'Pragma: no-cache\' -H \'Cache-Control: no-cache\' -H \'content-type: application/json\' -H \'accept: application/json\' --data-binary "$pod_upgrade_body" --compressed
+                '''
+                }
+            }
+        }
+    }
+}

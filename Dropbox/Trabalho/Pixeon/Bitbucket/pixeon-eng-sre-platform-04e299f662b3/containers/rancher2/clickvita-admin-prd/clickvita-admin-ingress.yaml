@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: clickvita-admin-ingress
+  namespace: clickvita-admin-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - admin-clickvita.pixeon.cloud
+    secretName: clickvita-admin-prd-secret
+  rules:
+  - host: admin-clickvita.pixeon.cloud
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: clickvita-admin-fe
+          servicePort: 80
+      - path: /api
+        backend:
+          serviceName: clickvita-admin-be
+          servicePort: 80

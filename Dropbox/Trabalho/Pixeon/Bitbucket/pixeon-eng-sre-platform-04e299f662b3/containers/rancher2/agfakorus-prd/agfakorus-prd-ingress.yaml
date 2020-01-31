@@ -1,0 +1,50 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: agfakorus-api-prd-ingress
+  namespace: agfakorus-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+    nginx.org/client-max-body-size: "2m"
+spec:
+  tls:
+  - hosts:
+    - agfakorus-api-agfa-prd.pixeon.cloud
+    secretName: agfakorus-api-prd-secret
+  rules:
+  - host: agfakorus-api-agfa-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-prd-api-agfa
+          servicePort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: agfakorus-prd-ingress
+  namespace: agfakorus-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - agfakorus-api-documentos-prd.pixeon.cloud
+    - agfakorus-rabbitmq-prd.pixeon.cloud
+    secretName: agfakorus-prd-secret
+  rules:
+  - host: agfakorus-api-documentos-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-prd-api-agfa-documentos
+          servicePort: 80
+  - host: agfakorus-rabbitmq-prd.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: agfakorus-prd-rabbitmq-web
+          servicePort: 15672

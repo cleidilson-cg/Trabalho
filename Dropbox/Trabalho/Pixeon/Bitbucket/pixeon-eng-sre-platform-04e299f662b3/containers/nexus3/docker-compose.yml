@@ -1,0 +1,17 @@
+version: '2'
+volumes:
+  nexus-data: {}
+services:
+  nexus:
+    image: sonatype/nexus3
+    volumes:
+    - nexus-data:/nexus-data
+    labels:
+      traefik.frontend.rule: Host:nexus.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: nexus
+      traefik.port: '8081'
+      io.rancher.container.hostname_override: container_name
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'

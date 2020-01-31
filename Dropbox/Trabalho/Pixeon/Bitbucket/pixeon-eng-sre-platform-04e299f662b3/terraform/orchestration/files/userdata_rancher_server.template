@@ -1,0 +1,33 @@
+#cloud-config
+write_files:
+  - path: /opt/rancher/bin/init.sh
+    permissions: "0770"
+    content: |
+      #!/bin/sh
+      apt-get update -y
+      apt-get install mysql-client -y
+      mysql -h${rancher_database_address} -u${database_root_username} -p${database_root_password} -P${rancher_database_port} -e "CREATE DATABASE IF NOT EXISTS ${rancher_database_name} COLLATE = 'utf8_general_ci' CHARACTER SET = 'utf8';"
+      mysql -h${rancher_database_address} -u${database_root_username} -p${database_root_password} -P${rancher_database_port} -e "GRANT ALL ON ${rancher_database_name}.* TO '${rancher_database_username}'@'%' IDENTIFIED BY '${rancher_database_password}';"
+      mysql -h${rancher_database_address} -u${database_root_username} -p${database_root_password} -P${rancher_database_port} -e "GRANT ALL ON ${rancher_database_name}.* TO '${rancher_database_username}'@'localhost' IDENTIFIED BY '${rancher_database_password}';"
+      apt-get remove docker docker-engine docker.io -y
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+      apt-key fingerprint 0EBFCD88
+      add-apt-repository    "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      apt-get update -y
+      apt-get install docker-ce -y
+
+
+  - path: /opt/rancher/bin/start.sh
+    permissions: "0770"
+    content: |
+      #!/bin/sh
+      while ! docker version >/dev/null 2>&1; do echo 'waiting for docker...'; sleep 2; done
+      while ! ping -c 1 8.8.8.8 >/dev/null 2>&1; do echo 'waiting for net...'; sleep 2; done
+      sleep 5
+      docker run -d -p 8080:8080 -p 9345:9345 --restart=unless-stopped  "${rancher_version}" --advertise-address `ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}'` --db-host ${rancher_database_address} --db-port ${rancher_database_port} --db-name ${rancher_database_name} --db-user ${database_root_username} --db-pass ${database_root_password}
+
+runcmd:  
+  - sudo chmod +x /opt/rancher/bin/init.sh
+  - sudo sh /opt/rancher/bin/init.sh
+  - sudo chmod +x /opt/rancher/bin/start.sh
+  - sudo sh /opt/rancher/bin/start.sh

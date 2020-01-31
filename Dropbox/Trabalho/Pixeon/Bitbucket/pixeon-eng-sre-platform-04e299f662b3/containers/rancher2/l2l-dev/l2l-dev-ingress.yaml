@@ -1,0 +1,41 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: l2l-dev-ingress
+  namespace: l2l-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - l2l-api-r2.dev.pixeon.cloud
+    - l2l-reports-r2.dev.pixeon.cloud
+    - l2l-etiqueta-r2.dev.pixeon.cloud
+    - l2l-rabbitmq-r2.dev.pixeon.cloud
+    secretName: l2l-dev-secret
+  rules:
+  - host: l2l-api-r2.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-dev-api
+          servicePort: 80
+  - host: l2l-reports-r2.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-dev-reports
+          servicePort: 80
+  - host: l2l-etiqueta-r2.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-dev-solicitacaoetiqueta
+          servicePort: 80
+  - host: l2l-rabbitmq-r2.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: l2l-dev-rabbitmq-web
+          servicePort: 15672

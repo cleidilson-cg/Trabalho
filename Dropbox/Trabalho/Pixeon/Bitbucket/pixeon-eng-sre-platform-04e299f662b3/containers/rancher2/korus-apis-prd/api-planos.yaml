@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-planos
+  namespace: korus-apis-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-planos
+  template:
+    metadata:
+      labels:
+        app: api-planos
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-planos
+        image: "registry.pixeon.cloud/korus/api-planos:dev-1.0.0.7"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-planos
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-planos
+  namespace: korus-apis-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-planos

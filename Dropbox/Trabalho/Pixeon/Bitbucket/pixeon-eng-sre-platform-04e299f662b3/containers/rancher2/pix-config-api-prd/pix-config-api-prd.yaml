@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pix-config-api-dev
+  namespace: pix-config-api-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pix-config-api-dev
+  template:
+    metadata:
+      labels:
+        app: pix-config-api-dev
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: pix-config-api-dev
+        image: "registry.pixeon.cloud/aurora/pix-config-api:latest"
+        ports:
+        - containerPort: 8086
+          name: pix-config-api
+        env:
+        - name: SPRING_DATA_MONGODB_URI
+          value: 'mongodb://pix-config-api-dev:d4AKFpdCELeo7R4FiRcPkKLlZbTfCUeG5VWT4Nq8S151KEY7pVLAUpH1HbyUgUnyb4qVKZ63zhwJwSaHVzIB0w==@pix-config-api-dev.documents.azure.com:10255/?ssl=true&replicaSet=globaldb'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pix-config-api-dev
+  namespace: pix-config-api-dev
+spec:
+  ports:
+  - port: 8086
+  selector:
+    app: pix-config-api-dev
+

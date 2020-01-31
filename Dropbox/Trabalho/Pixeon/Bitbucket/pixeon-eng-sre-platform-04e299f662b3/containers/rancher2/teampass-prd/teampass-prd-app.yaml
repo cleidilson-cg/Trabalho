@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: teampass-prd-app
+  namespace: teampass-prd
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teampass-prd-app
+  namespace: teampass-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teampass-prd-app
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: teampass-prd-app
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: teampass-prd-app
+        image: "registry.pixeon.cloud/sre-tools:teampass-azure"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: web
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/var/www/html"
+          name: teampass-prd-app
+      volumes:
+        - name: teampass-prd-app
+          persistentVolumeClaim:
+            claimName: teampass-prd-app
+      hostname: teampass-prd-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teampass
+  namespace: teampass-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: teampass-prd-app

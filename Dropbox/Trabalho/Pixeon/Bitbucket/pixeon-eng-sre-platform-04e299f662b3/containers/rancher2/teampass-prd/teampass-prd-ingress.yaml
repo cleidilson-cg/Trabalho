@@ -1,0 +1,27 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: teampass-prd-ingress
+  namespace: teampass-prd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - vault.pixeon.cloud
+    - teampass.pixeon.cloud
+    secretName: teampass-prd-secret
+  rules:
+  - host: vault.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: teampass
+          servicePort: 80
+  - host: teampass.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: teampass
+          servicePort: 80

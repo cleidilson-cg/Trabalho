@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-dev-reports
+  namespace: l2l-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-dev-reports
+  template:
+    metadata:
+      labels:
+        app: l2l-dev-reports
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-dev-reports
+        image: "registry.pixeon.cloud/lab2labreports-homologacao"
+        ports:
+        - containerPort: 80
+          name: l2l-dev-reports
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://l2l-dev-reports"
+        - name: "Aws__S3.accesskeyid"
+          value: "AKIAIIO2XWZPYSHPRO7Q"
+        - name: "Aws__S3.bucket"
+          value: "pixeon-cloud-dev"
+        - name: "Aws__S3.secretaccesskey"
+          value: "MLaXKhSOnLlhA0C+94pHcvfwDh1iDf//ObWI9NoX"
+        - name: "Aws__S3.uri"
+          value: "https://pixeon-cloud-dev.s3.amazonaws.com"
+        - name: "Labs__Alvaro__Details.url"
+          value: "http://webservice.alvaro.com.br/webserviceaol/rest/producao/v2/resultados"
+        - name: "Labs__Alvaro__PDF.url"
+          value: "http://webservice.alvaro.com.br/webserviceaol/rest/producao/v2/resultados/pdf?idOrdemServico={0}&idEntidade={1}"
+        - name: "Labs__Pardini__Dominio"
+          value: "femme"
+        - name: "Labs__Pardini__LastResultsRequestSoapAction"
+          value: "http://hermespardini.com.br/b2b/apoio/schemas/HPWS.XMLServer.getUltimoResultado"
+        - name: "Labs__Pardini__Login"
+          value: "15665"
+        - name: "Labs__Pardini__Passcode"
+          value: "5431"
+        - name: "Labs__Pardini__ResultOrderSoapAction"
+          value: "http://hermespardini.com.br/b2b/apoio/schemas/HPWS.XMLServer.getResultadoPedido"
+        - name: "Labs__Pardini__ResultsRequestSoapAction"
+          value: "http://hermespardini.com.br/b2b/apoio/schemas/HPWS.XMLServer.getResultado"
+        - name: "Labs__Pardini__Url"
+          value: "https://www.hermespardini.com.br/b2bhomologa/HPWS.XMLServer.cls"
+        - name: "Labs__Pardini__UrlRetornoLaudo"
+          value: "http://pixeon11-app.pleres.net:8817/api/femme/Resultados/ReceberLaudo"
+        - name: "Labs__Pardini__UrlRetornoLaudoDetalhes"
+          value: "http://pixeon11-app.pleres.net:8817/api/femme/Resultados/ReceberLaudoVariaveis"
+        - name: "RabbitMq__hostname"
+          value: "l2l-dev-rabbitmq"
+        - name: "RabbitMq__port"
+          value: "5672"
+        - name: "Labs__Pardini__UrlBaseResultados"
+          value: "http://pixeon11-app.pleres.net:8817/api/femme/Resultados"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-dev-reports
+  namespace: l2l-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: l2l-dev-reports

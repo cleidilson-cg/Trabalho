@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: teampass-prd-mysql
+  namespace: teampass-prd
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teampass-prd-mysql
+  namespace: teampass-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teampass-prd-mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: teampass-prd-mysql
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: teampass-prd-mysql
+        image: "mysql/mysql-server:5.7"
+        pullPolicy: IfNotPresent
+        args: ["--ignore-db-dir", "lost+found"]
+        ports:
+        - containerPort: 3306
+          name: mysql
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/var/lib/mysql"
+          name: teampass-prd-mysql
+        env:
+        - name: MYSQL_USER
+          value: teampass
+        - name: MYSQL_DATABASE
+          value: teampass
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: teampass-prd-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: teampass-prd-secret
+              key: MYSQL_ROOT_PASSWORD
+      volumes:
+        - name: teampass-prd-mysql
+          persistentVolumeClaim:
+            claimName: teampass-prd-mysql
+      hostname: teampass-prd-mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: teampass-prd
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: teampass-prd-mysql

@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: mailcheck-dev-ingress
+  namespace: mailcheck-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+spec:
+  tls:
+  - hosts:
+    - mailcheck.dev.pixeon.cloud
+    secretName: mailcheck-dev-secret
+  rules:
+  - host: mailcheck.dev.pixeon.cloud
+    http:
+      paths:
+      - backend:
+          serviceName: mailcheck-dev-api
+          servicePort: 80

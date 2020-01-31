@@ -1,0 +1,21 @@
+FROM registry.pixeon.cloud/korus:web.base
+MAINTAINER yros.aguiar@pixeon.cloud
+
+
+ARG APP_NAME=Web.Home
+
+SHELL ["powershell"]
+
+COPY Web.Home c:\\app\\Web.Home
+COPY *.xml  c:\\app/
+COPY *.cfg  c:\\app/
+COPY *.xsd  c:\\app/
+
+RUN New-Website -Name 'Web.Home' -Port 80 \
+    -PhysicalPath 'c:\app\Web.Home' -ApplicationPool '.NET v4.5'
+EXPOSE 80
+
+CMD Write-Host IIS Started... ; \
+    while ($true) { Start-Sleep -Seconds 3600 }
+
+

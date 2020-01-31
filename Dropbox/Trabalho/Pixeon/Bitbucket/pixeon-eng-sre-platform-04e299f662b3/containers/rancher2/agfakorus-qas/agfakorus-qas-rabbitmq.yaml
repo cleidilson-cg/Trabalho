@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agfakorus-qas-rabbitmq
+  namespace: agfakorus-qas
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-qas-rabbitmq
+  namespace: agfakorus-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-qas-rabbitmq
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: agfakorus-qas-rabbitmq
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-qas-rabbitmq
+        image: "registry.pixeon.cloud/rabbitmq-delayed-message:3.7.8-management"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4369
+          name: epmd
+          protocol: TCP
+        - containerPort: 5672
+          name: amqp2
+          protocol: TCP
+        - containerPort: 15672
+          name: api
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/var/lib/rabbitmq"
+          name: agfakorus-qas-rabbitmq
+        env:
+        - name: "RABBITMQ_DEFAULT_PASS"
+          value: "29Pqvy7xKaDn3eHs"
+        - name: "RABBITMQ_DEFAULT_USER"
+          value: "agfaqasrabbit"
+      volumes:
+        - name: agfakorus-qas-rabbitmq
+          persistentVolumeClaim:
+            claimName: agfakorus-qas-rabbitmq
+      hostname: agfakorus-qas-rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-qas-rabbitmq
+  namespace: agfakorus-qas
+spec:
+  ports:
+  - port: 5672
+  selector:
+    app: agfakorus-qas-rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-qas-rabbitmq-web
+  namespace: agfakorus-qas
+spec:
+  ports:
+  - port: 15672
+  selector:
+    app: agfakorus-qas-rabbitmq

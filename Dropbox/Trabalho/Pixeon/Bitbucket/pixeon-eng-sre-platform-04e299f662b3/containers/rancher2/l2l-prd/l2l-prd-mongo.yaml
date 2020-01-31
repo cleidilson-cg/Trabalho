@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l2l-prd-mongo
+  namespace: l2l-prd
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-prd-mongo
+  namespace: l2l-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-prd-mongo
+  template:
+    metadata:
+      labels:
+        app: l2l-prd-mongo
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-prd-mongo
+        image: mongo:3.4.21-xenial
+        ports:
+        - containerPort: 27017
+          name: l2l-prd-mongo
+        volumeMounts:
+        - mountPath: "/data/db"
+          name: l2l-prd-mongo
+      volumes:
+        - name: l2l-prd-mongo
+          persistentVolumeClaim:
+            claimName: l2l-prd-mongo
+      hostname: l2l-prd-mongo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-prd-mongo
+  namespace: l2l-prd
+spec:
+  ports:
+  - port: 27017
+  selector:
+    app: l2l-prd-mongo

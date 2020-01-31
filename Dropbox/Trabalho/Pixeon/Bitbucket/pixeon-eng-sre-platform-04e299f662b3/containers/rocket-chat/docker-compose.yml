@@ -1,0 +1,75 @@
+version: '2'
+services:
+  mongo:
+    image: mongo
+    command:
+    - mongod
+    - --smallfiles
+    - --oplogSize
+    - '128'
+    volumes:
+     - rocketchat-mongo-data:/data/db
+     - rocketchat-mongo-dump:/dump
+  rocketchat:
+    image: rocketchat/rocket.chat:latest
+    environment:
+      MONGO_URL: mongodb://mongo:27017/rocketchat
+      PORT: '3000'
+      ROOT_URL: https://chat.pixeon.cloud
+    links:
+    - mongo:mongo
+    volumes:
+    - rocketchat-uploads:/app/uploads
+    ports:
+    - 3000:3000/tcp
+    labels:
+      traefik.frontend.rule: Host:chat.pixeon.cloud
+      traefik.enable: 'true'
+      traefik.backend: rocketchat
+      traefik.port: '3000'
+      io.rancher.container.hostname_override: container_name
+      io.rancher.container.pull_image: always
+      traefik.frontend.headers.SSLProxyHeaders: X-Forwarded-Proto:https
+      traefik.frontend.entryPoints: http,https
+      traefik.frontend.headers.SSLRedirect: 'true'
+  hubot:
+    image: rocketchat/hubot-rocketchat
+    environment:
+      BOT_NAME: bot
+      EXTERNAL_SCRIPTS: hubot-help,hubot-seen,hubot-links,hubot-diagnostics
+      ROCKETCHAT_PASSWORD: botpassword
+      ROCKETCHAT_ROOM: GENERAL
+      ROCKETCHAT_URL: rocketchat:3000
+      ROCKETCHAT_USER: bot
+    links:
+      - rocketchat:rocketchat
+    volumes:
+      - rocketchat-hubot:/home/hubot/scripts
+    ports:
+      - 3001:3001
+    ports:
+    - 3001:8080/tcp
+  rocketchat-backup:
+    image: registry.pixeon.cloud/sre-tools:dockup
+    environment:
+      AWS_ACCESS_KEY_ID: AKIAILZ7TC7NYQGPNCXA-
+      AWS_SECRET_ACCESS_KEY: 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-
+      PATHS_TO_BACKUP: /rocketchat-mongo-data /rocketchat-mongo-dump /rocketchat-uploads /rocketchat-hubot
+      S3_BUCKET_NAME: pixeon-cloud-backups
+      S3_FOLDER: containers/rocket-chat/
+      RESTORE: 'false'
+      NOTIFY_SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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
+      NOTIFY_BACKUP_SUCCESS: 'true'
+      NOTIFY_BACKUP_FAILURE: 'true'
+      LAST_BACKUP: backup_filename_in_s3_folder
+    stdin_open: true
+    volumes:
+    - rocketchat-mongo-data:/rocketchat-mongo-data:ro
+    - rocketchat-mongo-dump:/rocketchat-mongo-dump:ro
+    - rocketchat-uploads:/rocketchat-uploads:ro
+    - rocketchat-hubot:/rocketchat-hubot:ro
+volumes: 
+  rocketchat-mongo-data:
+  rocketchat-mongo-dump:
+  rocketchat-uploads:
+  rocketchat-hubot:

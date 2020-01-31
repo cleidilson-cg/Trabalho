@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agfakorus-qas-api-agfa-documentos
+  namespace: agfakorus-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agfakorus-qas-api-agfa-documentos
+  template:
+    metadata:
+      labels:
+        app: agfakorus-qas-api-agfa-documentos
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: agfakorus-qas-api-agfa-documentos
+        image: "registry.pixeon.cloud/korus/api-agfa-documentos:latest"
+        ports:
+        - containerPort: 80
+          name: agfa-qas-apidoc
+        env:
+        - name: "ASPNETCORE_ENVIRONMENT"
+          value: "Production"
+        - name: "ASPNETCORE_URLS"
+          value: "http://agfakorus-qas-api-agfa-documentos"
+        - name: "Services__Atendimento"
+          value: "http://agfakorus-qas-api-atendimento/api/"
+        - name: "Services__Authentication"
+          value: "http://agfakorus-qas-api-autenticacao/api/"
+        - name: "Services__AwsS3__accessAccessKeyID"
+          value: "AKIAIDHKLHK6DM5JY67Q"
+        - name: "Services__AwsS3__bucketName"
+          value: "suite-net"
+        - name: "Services__AwsS3__secretAccessKey"
+          value: "yLHAj05XjH/F+tGbkt5/vPuHov8p3wg+koPcnfGn"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agfakorus-qas-api-agfa-documentos
+  namespace: agfakorus-qas
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: agfakorus-qas-api-agfa-documentos

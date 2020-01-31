@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickvita-events
+  namespace: clickvita-events-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickvita-events
+  template:
+    metadata:
+      labels:
+        app: clickvita-events
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: clickvita-events
+        image: "registry.pixeon.cloud/clickvita/prd/clickvita-events:latest"
+        pullPolicy: IfNotPresent
+        env:
+        - name: JAVA_OPTS
+          value: -Dspring.profiles.active=prod
+        - name: TZ
+          value: "America/Sao_Paulo"

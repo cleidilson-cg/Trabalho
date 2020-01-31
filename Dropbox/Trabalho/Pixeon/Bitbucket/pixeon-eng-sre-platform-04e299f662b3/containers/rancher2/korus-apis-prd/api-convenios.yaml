@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-convenios
+  namespace: korus-apis-prd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-convenios
+  template:
+    metadata:
+      labels:
+        app: api-convenios
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: api-convenios
+        image: "registry.pixeon.cloud/korus/api-convenios:dev-1.0.0.18"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: api-convenios
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-convenios
+  namespace: korus-apis-prd
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: api-convenios

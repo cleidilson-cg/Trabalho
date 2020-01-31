@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l2l-qas-rabbitmq
+  namespace: l2l-qas
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: azuredisk-premium-lrs
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l2l-qas-rabbitmq
+  namespace: l2l-qas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l2l-qas-rabbitmq
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: l2l-qas-rabbitmq
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: l2l-qas-rabbitmq
+        image: "rabbitmq:3.7.16-management"
+        pullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4369
+          name: epmd
+          protocol: TCP
+        - containerPort: 5672
+          name: amqp2
+          protocol: TCP
+        - containerPort: 15672
+          name: api
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/var/lib/rabbitmq"
+          name: l2l-qas-rabbitmq
+        env:
+        - name: "RABBITMQ_DEFAULT_PASS"
+          value: "75Iidq3bMw"
+        - name: "RABBITMQ_DEFAULT_USER"
+          value: "admin"
+      volumes:
+        - name: l2l-qas-rabbitmq
+          persistentVolumeClaim:
+            claimName: l2l-qas-rabbitmq
+      hostname: l2l-qas-rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-qas-rabbitmq
+  namespace: l2l-qas
+spec:
+  ports:
+  - port: 5672
+  selector:
+    app: l2l-qas-rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l2l-qas-rabbitmq-web
+  namespace: l2l-qas
+spec:
+  ports:
+  - port: 15672
+  selector:
+    app: l2l-qas-rabbitmq

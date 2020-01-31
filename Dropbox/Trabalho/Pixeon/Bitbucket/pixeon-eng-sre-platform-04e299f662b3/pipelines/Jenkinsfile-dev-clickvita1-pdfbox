@@ -1,0 +1,79 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Bitbucket - Checkout App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo "Git checkout - Repository: ${REPOSITORY} / Branch: ${BRANCH}"
+                    checkout([$class: 'GitSCM', branches: [[name: "*/${BRANCH}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'scm_pixeon', url: "git@bitbucket.org:pixeon/${REPOSITORY}.git"]]])
+                    script {
+                            workdir = pwd()
+                        }
+                }
+            }
+        }
+        stage('SBT - Compile App') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'SBT - Compile App'
+                    sh returnStatus: true, script: '''
+                       docker login -p ${NEXUS_PASSWORD} -u ${NEXUS_USER} http://registry.pixeon.cloud
+                       docker run --rm -v ${PWD}:/app -v /home/ubuntu/.ivy2:/root/.ivy2 ${SBT_IMAGE} sbt clean dist
+                    '''
+                }
+            }
+        }
+        stage('Docker - Build Image') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Docker - Build Image'
+                    sh returnStatus: true, script: '''
+                       docker build -t registry.pixeon.cloud/clickvita-pdfbox:latest -t registry.pixeon.cloud/clickvita-pdfbox:"${BUILD_NUMBER}" .
+                    '''
+                }
+            }
+        }
+        stage('Nexus - Push Docker Image') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Nexus - Push Docker Image'
+                    sh returnStatus: true, script: '''
+                       docker login -p ${NEXUS_PASSWORD} -u ${NEXUS_USER} http://registry.pixeon.cloud
+                       docker push registry.pixeon.cloud/clickvita-pdfbox
+                    '''
+                }
+            }
+        }
+        stage('Docker - Clean Local Images') {
+            steps {
+                script {
+                    workdir = "${env.BUILD_NUMBER}"
+                }
+                dir(workdir) {
+                    echo 'Docker - Clean Local Images'
+                    sh returnStatus: true, script: '''
+                       docker rmi registry.pixeon.cloud/clickvita-pdfbox:latest registry.pixeon.cloud/clickvita-pdfbox:"${BUILD_NUMBER}"
+                    '''
+                }
+            }
+        }
+        stage('Rancher - Deploy Clickvita1 Pdfbox') {
+            steps {
+                echo 'Rancher - Deploy Clickvita1 Pdfbox'
+                rancher confirm: true, credentialId: 'e112a786-5fa4-48e6-8c0a-2e5f3be5c2f0', endpoint: 'https://caas.pixeon.cloud/v2-beta', environmentId: '1a238', ports: '', startFirst: '', environments: '', image: "${RANCHER_IMAGE}", service: 'clickvita1-pdfbox-dev/app', timeout: 50
+            }
+        }
+    }
+}

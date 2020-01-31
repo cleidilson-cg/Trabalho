@@ -1,0 +1,158 @@
+pipeline {
+    agent { label 'master' }
+
+    parameters { 
+        string(name: 'THREADS', description: 'Input number of threads')
+        //booleanParam(name: 'STOP_ENV_AFTER_TESTS', description: 'Stop Environment after Tests')
+    }
+
+    stages {
+        stage('Checkout') {
+                steps {
+                    script {
+                        version = "${env.BUILD_NUMBER}"
+                        workdir = "$version"
+                        threads = "${env.THREADS}"
+                        stopInstances = "${env.STOP_ENV_AFTER_TESTS}"
+                    }
+                    slackSend channel: 'sre_deploys', failOnError: true, message: "Jenkins Started the job ${env.JOB_NAME} ${env.BUILD_NUMBER} - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+                    dir(workdir) {
+                        checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'sre-bitbucket', url: 'git@bitbucket.org:pixeon/korus-load-test.git']]])
+                        script {
+                            workdir = pwd()
+                        }
+                    }
+                }
+        }
+
+      stage('Start Enviroment') {
+            parallel {
+                stage('Start Database') {
+                    steps {
+                        dir(workdir) {
+                            echo "Start Database Instance"
+           
+                            withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                script {
+                                    echo "Start Application Databases"
+                                    powershell """
+                                    aws ec2 start-instances --instance-ids  i-011cea6ea4a6cb148
+                                    aws rds start-db-instance --db-instance-identifier tstalliargwdb01
+                                    """
+                                    }
+                            }
+                        }
+                    }
+                }
+                stage('Start Applications') {
+                    steps {
+                        dir(workdir) {
+                          echo "Start Application Instances"
+
+                            withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                script {
+                                    powershell """
+                                    do {
+                                        Write-Host "waiting app database connection..."
+                                        sleep 3      
+                                    } until(Test-NetConnection korus-app-db.jmeter.pixeon.cloud -Port 1433 | ? { $_.TcpTestSucceeded } )
+                                    
+                                    do {
+                                        Write-Host "waiting gateway database connection..."
+                                        sleep 3      
+                                    } until(Test-NetConnection korus-gw-db.jmeter.pixeon.cloud -Port 1433 | ? { $_.TcpTestSucceeded } )
+
+                                    aws ec2 start-instances --instance-ids  i-01fef4156e98cd982,i-0696ac2b9a0fb3359,i-0773e0e5f0d759bab,i-0b866faf1674c450e,i-0e1f0cb00a97716fc
+                                    """
+                                }
+                            }   
+                        }
+                    }
+                }
+                stage('Start Jmeter Instances') {
+                    steps {
+                        dir(workdir) {
+                          echo "Start Jmeter Instances"
+                            withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                                script {
+                                    powershell """
+                                    aws ec2 start-instances --instance-ids i-061f169caf168996b
+                                    """
+                                    }
+                            }
+     
+                        }
+                    }
+                }
+            }
+        }        
+
+        stage('Run Stress Test') {
+            steps {
+                node('master') {
+                    dir(workdir) {
+                        script {
+                            echo 'Start Build Step'
+                            def remote = [:]
+                            remote.name = 'jmeter'
+                            remote.host = 'jmeter.pixeon.cloud'
+                            remote.user = 'jenkins'
+                            remote.password = 'jenkins@pixeon@123'
+                            remote.allowAnyHosts = true                    
+                            powershell """
+                            (Get-Content run_stress_test.sh) -replace 'THREADS', '${threads}' | Set-Content run_stress_test.sh
+                            (Get-Content run_stress_test.sh) -replace 'VERSION', '${version}' | Set-Content run_stress_test.sh
+                            """
+                            sshPut remote: remote, from: 'run_stress_test.sh', into: '/home/jenkins/'
+                            sshCommand remote: remote, command: "chmod 777 /home/jenkins/run_stress_test.sh"
+                            sshCommand remote: remote, command: "/home/jenkins/run_stress_test.sh"
+                            sshRemove remote: remote, path: "/home/jenkins/run_stress_test.sh"
+                        }
+
+                    }
+                }
+            }
+        }
+        stage('Stop Environment') {
+            steps {
+                node('master') {
+                    dir(workdir) {
+                        withAWS(region:'sa-east-1',credentials:'pixeon-aws') {
+                            script {
+                                echo 'Stop Test Environment'                  
+                                powershell """
+                                aws ec2 stop-instances --instance-ids  i-061f169caf168996b,i-01fef4156e98cd982,i-011cea6ea4a6cb148,i-0696ac2b9a0fb3359,i-0773e0e5f0d759bab,i-0b866faf1674c450e,i-0e1f0cb00a97716fc
+                                aws rds stop-db-instance --db-instance-identifier tstalliargwdb01
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Show Reports URLs') {
+            steps {
+                    dir(workdir) {
+                        echo 'Show Reports URLs'
+
+                    }
+            }
+        }
+    }
+    post {
+        always {
+            dir(workdir) {
+            //    deleteDir()
+            }
+        }
+        aborted {
+            slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} was ABORTED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+        failure {
+            slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} FAILED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }        
+        success {
+            slackSend channel: 'sre_deploys', failOnError: true, message: "The job ${env.JOB_NAME} build ${env.BUILD_NUMBER} SUCCESSFUL DEPLOYED - JOB URL: (<${env.RUN_DISPLAY_URL}|Open>)", teamDomain: 'pixeon', tokenCredentialId: 'slack-jenkins'
+        }
+    }
+}
